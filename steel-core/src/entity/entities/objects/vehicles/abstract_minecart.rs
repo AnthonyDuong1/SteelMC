@@ -253,7 +253,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
             self.set_fall_distance(self.fall_distance() * 0.5);
         }
 
-        // TODO: set first tick to false
+        self.set_first_tick(false);
     }
 
     /// Applies natural slowdown to the minecart movement.
@@ -407,6 +407,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
             nbt.insert("DisplayOffset", self.display_offset());
         }
         nbt.insert("FlippedRotation", i8::from(self.minecart_base().flipped()));
+        nbt.insert("HasTicked", i8::from(self.is_first_tick()));
     }
 
     /// Mirrors `AbstractMinecart.readAdditionalSaveData`'s base-class portion.
@@ -419,6 +420,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
 
         let flipped = nbt.byte("FlippedRotation").unwrap_or(0) != 0;
         self.minecart_base().set_flipped(flipped);
+        self.set_first_tick(nbt.byte("HasTicked").unwrap_or(0) != 0);
     }
 }
 
