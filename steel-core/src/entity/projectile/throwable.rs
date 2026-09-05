@@ -118,3 +118,70 @@ pub trait ThrowableProjectile: Projectile {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use glam::DVec3;
+    use std::sync::Arc;
+
+    use steel_registry::blocks::{
+        block_state_ext::BlockStateExt as _, properties::BlockStateProperties,
+    };
+    use steel_registry::{init_vanilla_registry, vanilla_blocks, vanilla_entities};
+    use steel_utils::types::UpdateFlags;
+    use steel_utils::{BlockPos, ChunkPos};
+
+    use crate::behavior::init_behaviors;
+    use crate::entity::entities::SnowballEntity;
+    use crate::entity::{Entity, SharedEntity};
+    use crate::test_support::{fresh_test_world, insert_ready_full_chunk};
+
+    #[test]
+    fn bubble_column_affects_throwable_projectile_before_its_first_movement() {
+        init_vanilla_registry();
+        init_behaviors();
+
+        let world = fresh_test_world("throwable_first_tick_bubble_column");
+        insert_ready_full_chunk(&world, ChunkPos::new(0, 0));
+
+        let bubble_pos = BlockPos::new(8, 65, 8);
+        let initial_position = DVec3::new(8.5, 65.0, 8.5);
+        let bubble_column = vanilla_blocks::BUBBLE_COLUMN
+            .default_state()
+            .set_value(&BlockStateProperties::DRAG, false);
+
+        assert!(world.set_block(bubble_pos, bubble_column, UpdateFlags::UPDATE_NONE));
+
+        let snowball = Arc::new(SnowballEntity::new(
+            &vanilla_entities::SNOWBALL,
+            1,
+            initial_position,
+            Arc::downgrade(&world),
+        ));
+        world
+            .try_add_entity(Arc::clone(&snowball) as SharedEntity)
+            .expect("snowball should attach to the loaded chunk");
+
+        assert!(snowball.is_first_tick());
+
+        snowball.tick();
+
+        assert!(!snowball.is_first_tick());
+        assert!(
+            snowball.position().y > initial_position.y,
+            "the first-tick bubble-column effect should push the projectile upward before movement"
+        );
+
+        snowball
+            .try_set_position(initial_position)
+            .expect("snowball should return to its initial position");
+        snowball.set_velocity(DVec3::ZERO);
+
+        snowball.tick();
+
+        assert!(
+            snowball.position().y < initial_position.y,
+            "after the first tick, the bubble-column effect should occur after movement"
+        );
+    }
+}
