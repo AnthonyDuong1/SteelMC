@@ -1,5 +1,6 @@
 //! Shared vanilla `Animal` state and hooks.
 
+use glam::DVec3;
 use std::sync::Arc;
 
 use simdnbt::borrow::NbtCompound as BorrowedNbtCompoundView;
@@ -12,15 +13,15 @@ use steel_registry::vanilla_game_rules::MOB_DROPS;
 use steel_utils::entity_events::EntityStatus;
 use steel_utils::locks::SyncMutex;
 use steel_utils::types::InteractionHand;
-use steel_utils::{BlockPos, Identifier, UuidExt};
+use steel_utils::{BlockPos, Identifier, UuidExt, axis::Axis};
 use uuid::Uuid;
 
 use crate::behavior::InteractionResult;
 use crate::entity::ai::path::PathType;
 use crate::entity::entities::ExperienceOrbEntity;
 use crate::entity::{
-    AgeableMob, AgeableMobBase, ENTITIES, EntitySpawnReason, Mob, MobBase, SharedEntity,
-    next_entity_id,
+    AgeableMob, AgeableMobBase, ENTITIES, EntitySpawnReason, LivingEntity, Mob, MobBase,
+    SharedEntity, dismount_helper, next_entity_id,
 };
 use crate::player::Player;
 use crate::world::{LevelReader, World};
@@ -172,6 +173,54 @@ pub trait Animal: AgeableMob {
     /// Returns vanilla `Animal.getAmbientSoundInterval`.
     fn ambient_sound_interval_animal(&self) -> i32 {
         120
+    }
+
+    /// Returns a safe dismount location beside this animal.
+    ///
+    /// Mirrors vanilla `Animal.getDismountLocationForPassenger`.
+    fn dismount_location_for_passenger_animal(&self, passenger: &dyn LivingEntity) -> DVec3 {
+        let forward = self.motion_direction();
+        if forward.axis() == Axis::Y {
+            return self.default_dismount_location_for_passenger();
+        }
+
+        let Some(world) = self.level() else {
+            return self.default_dismount_location_for_passenger();
+        };
+
+        let offsets = dismount_helper::offsets_for_direction(forward);
+        let vehicle_pos = self.block_position();
+
+        for &dismount_pose in passenger.dismount_poses() {
+            let pose_collision_box = passenger.local_bounds_for_pose(dismount_pose);
+
+            for (offset_x, offset_z) in offsets {
+                let target_pos = BlockPos::new(
+                    vehicle_pos.x() + offset_x,
+                    vehicle_pos.y(),
+                    vehicle_pos.z() + offset_z,
+                );
+                let floor_height = dismount_helper::block_floor_height(&world, target_pos);
+
+                if !dismount_helper::is_block_floor_valid(floor_height) {
+                    continue;
+                }
+
+                let location = DVec3::new(
+                    f64::from(target_pos.x()) + 0.5,
+                    f64::from(target_pos.y()) + floor_height,
+                    f64::from(target_pos.z()) + 0.5,
+                );
+                let dismount_box = pose_collision_box.translate(location);
+
+                if dismount_helper::can_dismount_to(&world, passenger, &dismount_box) {
+                    passenger.set_pose(dismount_pose);
+                    return location;
+                }
+            }
+        }
+
+        self.default_dismount_location_for_passenger()
     }
 
     /// Returns vanilla `Animal.getWalkTargetValue`.

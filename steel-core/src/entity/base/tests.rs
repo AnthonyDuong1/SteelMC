@@ -287,8 +287,14 @@ fn lifecycle_state_tracks_removal() {
     };
     assert!(base.is_world_change_token_pending(pending_token));
 
-    base.set_removed(RemovalReason::Discarded);
-    base.set_removed(RemovalReason::Killed);
+    let (stored_reason, first_removal) = base.mark_removed(RemovalReason::Discarded);
+    assert_eq!(stored_reason, RemovalReason::Discarded);
+    assert!(first_removal);
+    base.notify_removed(RemovalReason::Discarded);
+
+    let (stored_reason, first_removal) = base.mark_removed(RemovalReason::Killed);
+    assert_eq!(stored_reason, RemovalReason::Discarded);
+    assert!(!first_removal);
     assert!(base.is_removed());
     assert!(!base.is_world_change_pending());
     assert_eq!(base.removal_reason(), Some(RemovalReason::Discarded));
@@ -331,7 +337,9 @@ fn lifecycle_state_tracks_pending_world_change_tokens() {
 fn killed_player_respawn_can_retain_admission_ownership() {
     let dimensions = EntityDimensions::new(0.6, 1.8, 1.62);
     let base = EntityBase::new(1, DVec3::ZERO, dimensions, Weak::<World>::new());
-    base.set_removed(RemovalReason::Killed);
+    let (stored_reason, first_removal) = base.mark_removed(RemovalReason::Killed);
+    assert_eq!(stored_reason, RemovalReason::Killed);
+    assert!(first_removal);
 
     assert_eq!(base.begin_pending_world_change(), None);
     let Some(pending_token) = base.begin_pending_player_respawn() else {

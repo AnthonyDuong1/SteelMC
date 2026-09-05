@@ -1463,9 +1463,12 @@ impl Entity for Player {
         self.check_riding_statistics(self.position() - pre);
     }
 
-    fn stop_riding(&self) {
+    fn remove_vehicle(&self) {
         let old_vehicle = self.vehicle();
-        self.base().stop_riding();
+
+        self.default_remove_vehicle();
+        self.base().set_boarding_cooldown(0);
+
         let Some(old_vehicle) = old_vehicle else {
             return;
         };
@@ -1475,6 +1478,26 @@ impl Entity for Player {
             old_vehicle.id(),
             Self::passenger_ids_for_packet(old_vehicle.as_ref()),
         ));
+    }
+
+    fn dismount_to(&self, position: DVec3) {
+        let velocity = self.velocity();
+        let rotation = self.rotation();
+
+        if let Err(error) = self.teleport_with_velocity_packet(
+            position,
+            velocity,
+            rotation,
+            position,
+            DVec3::ZERO,
+            (0.0, 0.0),
+            RelativeMovement::DELTA.union(RelativeMovement::ROTATION),
+        ) {
+            panic!(
+                "failed to synchronize player {} dismount position: {error}",
+                self.id()
+            );
+        }
     }
 
     fn start_riding(&self, entity_to_ride: &SharedEntity) -> bool {
@@ -2087,6 +2110,14 @@ impl LivingEntity for Player {
         self.broadcast_entity_event(slot.into());
         self.refresh_equipment_attribute_modifiers(slot);
         self.award_stat(&vanilla_stat_types::ITEM_BROKEN, item);
+    }
+
+    fn dismount_poses(&self) -> &'static [EntityPose] {
+        &[
+            EntityPose::Standing,
+            EntityPose::Sneaking,
+            EntityPose::Swimming,
+        ]
     }
 }
 

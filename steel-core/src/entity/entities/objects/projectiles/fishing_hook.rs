@@ -923,7 +923,7 @@ impl Entity for FishingHookEntity {
     /// Marks entity as removed and clears owner info.
     fn set_removed(&self, reason: RemovalReason) {
         self.clear_owner_info();
-        self.base.set_removed(reason);
+        self.default_set_removed(reason);
     }
 
     /// Returns the ID of the owner, or of this `FishingHookEntity`, if it has no owner.

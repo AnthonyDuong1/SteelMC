@@ -808,11 +808,6 @@ impl EntityBase {
         self.relationships.lock().remove_passenger_id(passenger_id)
     }
 
-    /// Stops riding the current vehicle, if any.
-    pub fn stop_riding(&self) {
-        self.stop_riding_relationship();
-    }
-
     /// Restores a persisted passenger relationship without applying gameplay boarding rules.
     pub(crate) fn restore_passenger_relationship(vehicle: &SharedEntity, passenger: &SharedEntity) {
         passenger.base().stop_riding_relationship();
@@ -1010,33 +1005,28 @@ impl EntityBase {
         self.lifecycle.lock().removal_reason
     }
 
-    /// Marks the entity as removed with the given reason.
+    /// Records the first removal reason.
     ///
-    /// Notifies the level callback on first removal.
-    pub fn set_removed(&self, reason: RemovalReason) {
-        let callback = {
-            let mut lifecycle = self.lifecycle.lock();
-            if lifecycle.removal_reason.is_some() {
-                None
-            } else {
-                lifecycle.removal_reason = Some(reason);
-                lifecycle.pending_world_change = None;
-                Some(self.level_callback.lock().clone())
-            }
-        };
+    /// Returns the stored removal reason and whether this was the first removal.
+    pub(crate) fn mark_removed(&self, reason: RemovalReason) -> (RemovalReason, bool) {
+        let mut lifecycle = self.lifecycle.lock();
 
-        if let Some(callback) = callback {
-            self.detach_from_relationships(reason);
-            callback.on_remove(reason);
-            *self.level_callback.lock() = Arc::new(NullEntityCallback);
+        if let Some(stored_reason) = lifecycle.removal_reason {
+            return (stored_reason, false);
         }
+
+        lifecycle.removal_reason = Some(reason);
+        lifecycle.pending_world_change = None;
+        (reason, true)
     }
 
-    fn detach_from_relationships(&self, reason: RemovalReason) {
-        if reason.should_destroy() {
-            self.stop_riding_relationship();
-        }
-        self.eject_passenger_relationships();
+    /// Notifies the level callback that the entity was removed.
+    pub(crate) fn notify_removed(&self, reason: RemovalReason) {
+        let callback = {
+            let mut callback = self.level_callback.lock();
+            mem::replace(&mut *callback, Arc::new(NullEntityCallback))
+        };
+        callback.on_remove(reason);
     }
 
     fn stop_riding_relationship(&self) {
@@ -1053,22 +1043,7 @@ impl EntityBase {
         }
     }
 
-    fn eject_passenger_relationships(&self) {
-        let passengers = {
-            let mut relationships = self.relationships.lock();
-            let passengers = relationships.passengers();
-            relationships.passengers.clear();
-            passengers
-        };
-
-        for passenger in passengers {
-            if passenger.base().clear_vehicle_if(self.id) {
-                passenger.base().set_boarding_cooldown(BOARDING_COOLDOWN);
-            }
-        }
-    }
-
-    fn clear_vehicle_if(&self, vehicle_id: i32) -> bool {
+    pub(crate) fn clear_vehicle_if(&self, vehicle_id: i32) -> bool {
         {
             let mut relationships = self.relationships.lock();
             let Some(vehicle) = relationships.vehicle() else {

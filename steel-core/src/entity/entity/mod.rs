@@ -529,7 +529,65 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
     ///
     /// Mirrors vanilla `Entity.stopRiding`.
     fn stop_riding(&self) {
-        self.base().stop_riding();
+        if let Some(living) = self.as_living_entity() {
+            living.stop_riding_living_entity();
+        } else {
+            self.remove_vehicle();
+        }
+    }
+
+    /// Default implementation of vanilla `Entity.removeVehicle`.
+    fn default_remove_vehicle(&self) {
+        let Some(old_vehicle) = self.vehicle() else {
+            return;
+        };
+
+        if !self.base().clear_vehicle_if(old_vehicle.id()) {
+            return;
+        }
+
+        old_vehicle.remove_passenger(self.as_entity_event_source());
+
+        if self
+            .removal_reason()
+            .is_none_or(RemovalReason::should_destroy)
+            && let Some(world) = self.level()
+        {
+            world.game_event_at(
+                &vanilla_game_events::ENTITY_DISMOUNT,
+                old_vehicle.position(),
+                &GameEventContext::new(Some(self.as_entity_event_source()), None),
+            );
+        }
+    }
+
+    /// Removes this entity from its current vehicle.
+    ///
+    /// Mirrors vanilla `Entity.removeVehicle`.
+    fn remove_vehicle(&self) {
+        self.default_remove_vehicle();
+    }
+
+    /// Removes passenger from this entity.
+    ///
+    /// Mirrors vanilla `Entity.removePassenger`.
+    fn remove_passenger(&self, passenger: &dyn Entity) {
+        assert!(
+            passenger
+                .vehicle()
+                .is_none_or(|vehicle| vehicle.id() != self.id()),
+            "Use passenger.stop_riding(), not vehicle.remove_passenger(passenger)"
+        );
+
+        self.base().remove_passenger_id(passenger.id());
+        passenger.base().set_boarding_cooldown(60);
+    }
+
+    /// Dismounts every passenger from this entity.
+    fn eject_passengers(&self) {
+        for passenger in self.passengers().into_iter().rev() {
+            passenger.stop_riding();
+        }
     }
 
     /// Starts riding `entity_to_ride` if vanilla boarding rules allow it.
@@ -697,6 +755,25 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
     /// Mirrors vanilla `Entity.positionRider`.
     fn position_rider(&self, passenger: &dyn Entity) {
         position_rider_default(self, passenger);
+    }
+
+    /// Default implementation of vanilla `Entity.getDismountLocationForPassenger`.
+    fn default_dismount_location_for_passenger(&self) -> DVec3 {
+        let position = self.position();
+
+        DVec3::new(position.x, self.bounding_box().max_y(), position.z)
+    }
+
+    /// Returns the dismount location for `passenger`.
+    ///
+    /// Mirrors vanilla `Entity.getDismountLocationForPassenger`.
+    fn dismount_location_for_passenger(&self, passenger: &dyn LivingEntity) -> DVec3 {
+        if let Some(animal) = self.as_animal() {
+            return animal.dismount_location_for_passenger_animal(passenger);
+        }
+        // TODO: add dismount if statement for minecarts.
+
+        self.default_dismount_location_for_passenger()
     }
 
     /// Returns this entity's root vehicle ID, or this entity's ID when it is not riding.
@@ -1118,10 +1195,34 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
         self.base().removal_reason()
     }
 
+    /// Default implementation of vanilla `Entity.setRemoved`.
+    fn default_set_removed(&self, reason: RemovalReason) {
+        let (stored_reason, first_removal) = self.base().mark_removed(reason);
+
+        if stored_reason.should_destroy() {
+            self.stop_riding();
+        }
+
+        for passenger in self.passengers() {
+            passenger.stop_riding();
+        }
+
+        if first_removal {
+            self.base().notify_removed(reason);
+        }
+
+        self.on_removal(reason);
+    }
+
     /// Marks the entity as removed with the given reason.
     fn set_removed(&self, reason: RemovalReason) {
-        self.base().set_removed(reason);
+        self.default_set_removed(reason);
     }
+
+    /// Runs entity-specific cleanup after removal.
+    ///
+    /// Mirrors vanilla `Entity.onRemoval`.
+    fn on_removal(&self, _reason: RemovalReason) {}
 
     /// Emits a vanilla game event from this entity's exact position with an explicit source entity.
     fn game_event_with_source_entity(
@@ -1724,6 +1825,11 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
     fn direction_yaw(&self) -> Direction {
         let (yaw, _) = self.rotation();
         Direction::from_yaw(yaw)
+    }
+
+    /// Returns the horizontal direction used for movement-dependent behavior.
+    fn motion_direction(&self) -> Direction {
+        self.direction_yaw()
     }
 
     /// Rotates this entity to face a fixed position.
@@ -3621,6 +3727,36 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
         }
         self.set_rotation((yaw, pitch));
         self.set_old_position_to_current();
+    }
+
+    /// Moves this entity to its final dismount position.
+    ///
+    /// Mirrors vanilla `Entity.dismountTo`.
+    fn dismount_to(&self, position: DVec3) {
+        if self.level().is_none() {
+            return;
+        }
+
+        let (yaw, pitch) = self.rotation();
+        self.snap_to(position, yaw, pitch);
+        self.teleport_passengers();
+    }
+
+    /// Repositions every passenger after this entity teleports.
+    ///
+    /// Mirrors vanilla `Entity.teleportPassengers`.
+    fn teleport_passengers(&self) {
+        let passengers = self.passengers();
+
+        for passenger in &passengers {
+            self.position_rider(passenger.as_ref());
+            passenger.set_old_position_to_current();
+            passenger.base().set_old_rotation_to_current();
+        }
+
+        for passenger in passengers {
+            passenger.teleport_passengers();
+        }
     }
 
     /// Runs when this entity causes another entity to die.

@@ -14,16 +14,12 @@ use steel_registry::{vanilla_blocks, vanilla_entities};
 use steel_utils::{BlockPos, BlockStateId, WorldAabb, axis::Axis};
 
 use crate::behavior::{BLOCK_BEHAVIORS, BlockCollisionContext};
-use crate::entity::Entity;
 use crate::entity::ai::walk::WalkPathEvaluator;
-use crate::physics::{CollisionWorld, WorldCollisionProvider};
+use crate::entity::{Entity, LivingEntity};
+use crate::physics::{CollisionWorld as _, WorldCollisionProvider};
 use crate::world::World;
 
 #[must_use]
-#[expect(
-    dead_code,
-    reason = "vanilla DismountHelper foundation; vehicle dismounts use this next"
-)]
 pub(crate) const fn offsets_for_direction(forward: steel_utils::Direction) -> [(i32, i32); 8] {
     let right = forward.rotate_y_clockwise();
     let left = right.opposite();
@@ -46,9 +42,15 @@ pub(crate) const fn offsets_for_direction(forward: steel_utils::Direction) -> [(
 }
 
 #[must_use]
-pub(crate) fn can_dismount_to(world: &Arc<World>, aabb: &WorldAabb) -> bool {
-    let collision_world = WorldCollisionProvider::new(world);
-    !collision_world.has_block_collision_with_context(aabb, BlockCollisionContext::empty())
+pub(crate) fn can_dismount_to(
+    world: &Arc<World>,
+    passenger: &dyn LivingEntity,
+    aabb: &WorldAabb,
+) -> bool {
+    let collision_world =
+        WorldCollisionProvider::for_entity(world, passenger.as_entity_event_source());
+
+    !collision_world.has_block_collision_for_source(aabb)
         && world.world_border_snapshot().is_within_bounds(*aabb)
 }
 
@@ -60,18 +62,14 @@ pub(crate) fn can_dismount_to(world: &Arc<World>, aabb: &WorldAabb) -> bool {
 pub(crate) fn can_dismount_to_pose(
     world: &Arc<World>,
     location: DVec3,
-    passenger: &dyn Entity,
+    passenger: &dyn LivingEntity,
     dismount_pose: EntityPose,
 ) -> bool {
-    let dimensions = passenger.dimensions_for_pose(dismount_pose);
-    let aabb = WorldAabb::entity_box(
-        location.x,
-        location.y,
-        location.z,
-        f64::from(dimensions.half_width()),
-        f64::from(dimensions.height),
-    );
-    can_dismount_to(world, &aabb)
+    let aabb = passenger
+        .local_bounds_for_pose(dismount_pose)
+        .translate(location);
+
+    can_dismount_to(world, passenger, &aabb)
 }
 
 #[must_use]
@@ -108,7 +106,7 @@ pub(crate) fn find_safe_dismount_location(
         return None;
     }
 
-    let floor_height = block_floor_height(
+    let floor_height = floor_height_from_shapes(
         non_climbable_shape(world, block_pos),
         non_climbable_shape(world, block_pos.below()),
     );
@@ -128,7 +126,7 @@ pub(crate) fn find_safe_dismount_location(
         f64::from(block_pos.y()) + floor_height,
         f64::from(block_pos.z()) + 0.5,
     );
-    let dimensions = entity.dimensions_for_pose(EntityPose::Standing);
+    let dimensions = entity.entity_type().dimensions;
     let aabb = WorldAabb::entity_box(
         position.x,
         position.y,
@@ -136,7 +134,9 @@ pub(crate) fn find_safe_dismount_location(
         f64::from(dimensions.half_width()),
         f64::from(dimensions.height),
     );
-    if !can_dismount_to(world, &aabb) {
+
+    let collision_world = WorldCollisionProvider::new(world);
+    if collision_world.has_block_collision_with_context(&aabb, BlockCollisionContext::empty()) {
         return None;
     }
 
@@ -150,6 +150,10 @@ pub(crate) fn find_safe_dismount_location(
                 .get_block()
                 .has_tag(&BlockTag::INVALID_SPAWN_INSIDE))
     {
+        return None;
+    }
+
+    if !world.world_border_snapshot().is_within_bounds(aabb) {
         return None;
     }
 
@@ -184,7 +188,26 @@ fn non_climbable_shape(world: &Arc<World>, pos: BlockPos) -> OffsetVoxelShape {
     )
 }
 
-fn block_floor_height(block_shape: OffsetVoxelShape, below_block_shape: OffsetVoxelShape) -> f64 {
+fn collision_shape(world: &Arc<World>, pos: BlockPos) -> OffsetVoxelShape {
+    let state = world.get_block_state(pos);
+    let behavior = BLOCK_BEHAVIORS.get_behavior(state.get_block());
+    let context = BlockCollisionContext::empty();
+    let shape = behavior.get_collision_shape(state, world.as_ref(), pos, context);
+
+    if shape.is_empty() {
+        return OffsetVoxelShape::without_offset(shape);
+    }
+
+    OffsetVoxelShape::new(
+        shape,
+        behavior.get_collision_shape_offset(state, world.as_ref(), pos, context),
+    )
+}
+
+fn floor_height_from_shapes(
+    block_shape: OffsetVoxelShape,
+    below_block_shape: OffsetVoxelShape,
+) -> f64 {
     if !block_shape.is_empty() {
         return block_shape.max(Axis::Y);
     }
@@ -197,7 +220,7 @@ fn block_floor_height(block_shape: OffsetVoxelShape, below_block_shape: OffsetVo
     }
 }
 
-fn is_block_floor_valid(block_floor_height: f64) -> bool {
+pub(crate) fn is_block_floor_valid(block_floor_height: f64) -> bool {
     !block_floor_height.is_infinite() && block_floor_height < 1.0
 }
 
@@ -212,4 +235,12 @@ fn is_block_dangerous(entity: &dyn Entity, state: BlockStateId) -> bool {
         || block == &vanilla_blocks::SWEET_BERRY_BUSH
         || block == &vanilla_blocks::CACTUS
         || block == &vanilla_blocks::POWDER_SNOW
+}
+
+#[must_use]
+pub(crate) fn block_floor_height(world: &Arc<World>, pos: BlockPos) -> f64 {
+    floor_height_from_shapes(
+        collision_shape(world, pos),
+        collision_shape(world, pos.below()),
+    )
 }

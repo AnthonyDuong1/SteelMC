@@ -2283,6 +2283,113 @@ pub trait LivingEntity: Entity {
         }
     }
 
+    /// Stops riding and moves this living entity to its dismount location.
+    ///
+    /// Mirrors vanilla `LivingEntity.stopRiding()`.
+    fn stop_riding_living_entity(&self) {
+        let old_vehicle = self.vehicle();
+
+        self.remove_vehicle();
+
+        let Some(old_vehicle) = old_vehicle else {
+            return;
+        };
+
+        if self
+            .vehicle()
+            .is_some_and(|vehicle| vehicle.id() == old_vehicle.id())
+        {
+            return;
+        }
+
+        if self.level().is_some() {
+            self.dismount_vehicle(old_vehicle.as_ref());
+        }
+    }
+
+    /// Finds and applies the position used after leaving `vehicle`.
+    ///
+    /// Mirrors vanilla `LivingEntity.dismountVehicle`.
+    fn dismount_vehicle(&self, vehicle: &dyn Entity) {
+        let Some(passenger) = self.as_living_entity() else {
+            return;
+        };
+
+        let teleport_target = if self.is_removed() {
+            self.position()
+        } else {
+            let Some(world) = self.level() else {
+                return;
+            };
+
+            let vehicle_is_usable = !vehicle.is_removed()
+                && !world
+                    .get_block_state(vehicle.block_position())
+                    .get_block()
+                    .has_tag(&BlockTag::PORTALS);
+
+            if vehicle_is_usable {
+                vehicle.dismount_location_for_passenger(passenger)
+            } else {
+                let position = self.position();
+                let vehicle_position = vehicle.position();
+                let mut teleport_target =
+                    DVec3::new(position.x, position.y.max(vehicle_position.y), position.z);
+
+                let dimensions = self.base().dimensions();
+                let width = f64::from(dimensions.width);
+                let height = f64::from(dimensions.height);
+                let is_small = width <= 4.0 && height <= 4.0;
+
+                if is_small {
+                    let half_height = height / 2.0;
+                    let center = teleport_target + DVec3::new(0.0, half_height, 0.0);
+                    let allowed_centers = [WorldAabb::of_size(center, width, height, width)];
+                    let collision_provider =
+                        WorldCollisionProvider::for_entity(&world, self.as_entity_event_source());
+
+                    if let Some(free_position) = collision_provider.find_free_position(
+                        &allowed_centers,
+                        center,
+                        width,
+                        height,
+                        width,
+                    ) {
+                        teleport_target = free_position - DVec3::new(0.0, half_height, 0.0);
+                    }
+                }
+
+                teleport_target
+            }
+        };
+
+        self.dismount_to(teleport_target);
+    }
+
+    /// Returns the poses considered when finding a dismount location.
+    ///
+    /// Mirrors vanilla `LivingEntity.getDismountPoses`.
+    fn dismount_poses(&self) -> &'static [EntityPose] {
+        &[EntityPose::Standing]
+    }
+
+    /// Returns the entity bounds for `pose` relative to the entity position.
+    ///
+    /// Mirrors vanilla `LivingEntity.getLocalBoundsForPose`.
+    fn local_bounds_for_pose(&self, pose: EntityPose) -> WorldAabb {
+        let dimensions = self.dimensions_for_pose(pose);
+        let half_width = f64::from(dimensions.width) / 2.0;
+
+        WorldAabb::new(
+            -half_width,
+            0.0,
+            -half_width,
+            half_width,
+            f64::from(dimensions.height),
+            half_width,
+        )
+    }
+
     /// Returns vanilla `LivingEntity.isSuppressingSlidingDownLadder()`.
     fn is_suppressing_sliding_down_ladder(&self) -> bool {
         self.is_suppressing_bounce()

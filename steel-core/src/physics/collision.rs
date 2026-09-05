@@ -382,6 +382,19 @@ impl<'a> WorldCollisionProvider<'a> {
         )
     }
 
+    /// Returns whether the supplied box intersects a block collision using this
+    /// provider's source-entity collision context.
+    #[must_use]
+    pub(crate) fn has_block_collision_for_source(&self, aabb: &WorldAabb) -> bool {
+        let context = self
+            .source
+            .map_or_else(BlockCollisionContext::empty, |source| {
+                self.entity_collision_context(source.position().y, source.is_descending(), false)
+            });
+
+        self.has_block_collision_with_context(aabb, context)
+    }
+
     /// Finds the block supporting an entity within `aabb`.
     ///
     /// Mirrors vanilla `CollisionGetter.findSupportingBlock`: among colliding
