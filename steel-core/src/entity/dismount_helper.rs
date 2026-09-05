@@ -106,7 +106,7 @@ pub(crate) fn find_safe_dismount_location(
         return None;
     }
 
-    let floor_height = floor_height_from_shapes(
+    let floor_height = block_floor_height_from_shapes(
         non_climbable_shape(world, block_pos),
         non_climbable_shape(world, block_pos.below()),
     );
@@ -160,7 +160,7 @@ pub(crate) fn find_safe_dismount_location(
     Some(position)
 }
 
-fn non_climbable_shape(world: &Arc<World>, pos: BlockPos) -> OffsetVoxelShape {
+pub(crate) fn non_climbable_shape(world: &Arc<World>, pos: BlockPos) -> OffsetVoxelShape {
     let state = world.get_block_state(pos);
     let block = state.get_block();
     let is_open_trapdoor = block.has_tag(&BlockTag::TRAPDOORS)
@@ -204,7 +204,7 @@ fn collision_shape(world: &Arc<World>, pos: BlockPos) -> OffsetVoxelShape {
     )
 }
 
-fn floor_height_from_shapes(
+fn block_floor_height_from_shapes(
     block_shape: OffsetVoxelShape,
     below_block_shape: OffsetVoxelShape,
 ) -> f64 {
@@ -239,7 +239,7 @@ fn is_block_dangerous(entity: &dyn Entity, state: BlockStateId) -> bool {
 
 #[must_use]
 pub(crate) fn block_floor_height(world: &Arc<World>, pos: BlockPos) -> f64 {
-    floor_height_from_shapes(
+    block_floor_height_from_shapes(
         collision_shape(world, pos),
         collision_shape(world, pos.below()),
     )
