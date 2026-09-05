@@ -1,7 +1,10 @@
 //! Vanilla `ThrowableProjectile` — the gravity/drag movement loop.
+use steel_registry::{blocks::block_state_ext::BlockStateExt as _, vanilla_blocks};
+use steel_utils::{BlockPos, axis::Axis};
 
-use crate::entity::RemovalReason;
+use crate::behavior::BLOCK_BEHAVIORS;
 use crate::entity::projectile::Projectile;
+use crate::entity::{InsideBlockEffectCollector, RemovalReason};
 
 /// Vanilla `ThrowableProjectile.getDefaultGravity`.
 const DEFAULT_GRAVITY: f64 = 0.03;
@@ -44,7 +47,7 @@ pub trait ThrowableProjectile: Projectile {
         self.set_old_position_to_current();
         self.base().set_old_rotation_to_current();
 
-        // TODO: handle_first_tick_bubble_column (bubble column shove on spawn).
+        self.handle_first_tick_bubble_column();
         self.apply_gravity();
         self.apply_inertia();
 
@@ -69,6 +72,49 @@ pub trait ThrowableProjectile: Projectile {
             && !self.is_world_change_pending()
         {
             self.hit_target_or_deflect_self(&result);
+        }
+    }
+
+    /// Vanilla `ThrowableProjectile.handleFirstTickBubbleColumn`.
+    fn handle_first_tick_bubble_column(&self) {
+        if !self.is_first_tick() {
+            return;
+        }
+
+        let Some(world) = self.level() else {
+            return;
+        };
+
+        let bounds = self.bounding_box();
+        let min = BlockPos::containing(
+            bounds.min(Axis::X),
+            bounds.min(Axis::Y),
+            bounds.min(Axis::Z),
+        );
+        let max = BlockPos::containing(
+            bounds.max(Axis::X),
+            bounds.max(Axis::Y),
+            bounds.max(Axis::Z),
+        );
+
+        let mut ignored_effects = InsideBlockEffectCollector::new();
+
+        for pos in BlockPos::between_closed(min, max) {
+            let state = world.get_block_state(pos);
+            if state.get_block() != &vanilla_blocks::BUBBLE_COLUMN {
+                continue;
+            }
+
+            BLOCK_BEHAVIORS
+                .get_behavior(state.get_block())
+                .entity_inside(
+                    state,
+                    &world,
+                    pos,
+                    self.as_entity_event_source(),
+                    &mut ignored_effects,
+                    true,
+                );
         }
     }
 }
