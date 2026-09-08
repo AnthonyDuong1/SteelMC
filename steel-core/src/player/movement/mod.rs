@@ -242,7 +242,7 @@ impl Player {
         let target_pitch = wrap_degrees(packet.get_x_rot(current_rotation.1));
 
         if self.update_awaiting_teleport() {
-            self.set_rotation((target_yaw, target_pitch));
+            self.abs_snap_rotation_to(target_yaw, target_pitch);
             return;
         }
 
@@ -817,22 +817,22 @@ impl Player {
         if world.entity_manager().get_by_id(self.id()).is_some() {
             world.chunk_map.update_player_status(self);
         }
-        self.set_velocity(velocity);
 
+        self.set_rotation(rotation);
+        self.set_y_head_rot(self.rotation().0);
+        self.set_old_position_to_current();
+        self.base().set_old_rotation_to_current();
+        self.set_velocity(velocity);
+        self.base().clear_movement_this_tick();
+
+        let awaiting_position = self.position();
         let new_id = {
             let mut tp = self.teleport_state.lock();
             tp.teleport_time = self.tick_count();
             let id = tp.next_id();
-            tp.awaiting_position = Some(pos);
+            tp.awaiting_position = Some(awaiting_position);
             id
         };
-
-        self.set_rotation(rotation);
-        self.set_old_position_to_current();
-        {
-            let mut movement = self.movement.lock();
-            movement.reset_last_known_client_movement();
-        }
 
         self.send_packet(CPlayerPosition::new(
             new_id,
@@ -858,7 +858,8 @@ impl Player {
 
         if let Some(pos) = tp.try_accept(packet.teleport_id) {
             drop(tp);
-            if let Err(error) = self.try_set_position(pos) {
+            let (yaw, pitch) = self.rotation();
+            if let Err(error) = self.abs_snap_to(pos, yaw, pitch) {
                 log::warn!(
                     "Failed to commit accepted teleport for player entity {}: {error}",
                     self.id()
@@ -866,10 +867,8 @@ impl Player {
                 self.teleport_state.lock().awaiting_position = Some(pos);
                 return;
             }
-            self.set_old_position_to_current();
             let mut movement = self.movement.lock();
             movement.mark_last_good_position(pos);
-            movement.reset_last_known_client_movement();
         } else if packet.teleport_id == tp.teleport_id && tp.awaiting_position.is_none() {
             drop(tp);
             self.disconnect(translations::MULTIPLAYER_DISCONNECT_INVALID_PLAYER_MOVEMENT.msg());

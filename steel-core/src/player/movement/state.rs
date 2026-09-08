@@ -82,6 +82,11 @@ impl MovementState {
         self.received_movement_this_tick = false;
     }
 
+    /// Resets Vanilla's movement-validation position baselines.
+    pub(in crate::player) const fn reset_position(&mut self, position: DVec3) {
+        self.client_movement.reset_position(position);
+    }
+
     /// Returns the current vanilla first-good and last-good validation positions.
     #[must_use]
     pub(in crate::player) const fn good_positions(&self) -> (DVec3, DVec3) {

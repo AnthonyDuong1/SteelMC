@@ -89,6 +89,12 @@ impl ClientAuthoredMovementState {
         self.above_ground_tick_count = 0;
     }
 
+    /// Resets the first-good and last-good positions.
+    pub(crate) const fn reset_position(&mut self, position: DVec3) {
+        self.first_good_position = position;
+        self.last_good_position = position;
+    }
+
     /// Returns the current vanilla first-good and last-good validation positions.
     #[must_use]
     pub(crate) const fn good_positions(&self) -> (DVec3, DVec3) {

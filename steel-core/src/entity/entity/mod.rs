@@ -1,3 +1,4 @@
+use super::base::BOARDING_COOLDOWN;
 use super::*;
 use crate::entity::leash::Leashable;
 use steel_math::DEGREE_90;
@@ -7,6 +8,7 @@ use steel_math::DEGREE_90;
 const FUDGE_SMALL_DIMENSION_LIMIT: f32 = 4.0;
 /// Vanilla `Entity.fudgePositionAfterSizeChange` epsilon padding (vanilla `1.0E-6`).
 const FUDGE_POSITION_EPSILON: f64 = 1.0e-6;
+const HORIZONTAL_LIMIT: f64 = 3.0E7;
 
 /// Final state accepted from a client-authored movement packet.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -33,6 +35,17 @@ pub enum AcceptedClientMovementOutcome {
     /// Movement applied, but follow-up processing should stop because the
     /// entity handled a terminal side effect such as death.
     Handled,
+}
+
+/// Mirrors `Entity.MoveFunction`.
+pub type EntityMoveFunction = fn(&dyn Entity, DVec3) -> Result<(), EntityMoveError>;
+
+fn set_position_move_function(entity: &dyn Entity, position: DVec3) -> Result<(), EntityMoveError> {
+    entity.try_set_position(position)
+}
+
+fn snap_to_move_function(entity: &dyn Entity, position: DVec3) -> Result<(), EntityMoveError> {
+    entity.snap_to_position(position)
 }
 
 /// Object-safe access to an entity trait object from default `Entity` methods.
@@ -530,7 +543,65 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
     ///
     /// Mirrors vanilla `Entity.stopRiding`.
     fn stop_riding(&self) {
-        self.base().stop_riding();
+        if let Some(living) = self.as_living_entity() {
+            living.stop_riding_living_entity();
+        } else {
+            self.remove_vehicle();
+        }
+    }
+
+    /// Default implementation of vanilla `Entity.removeVehicle`.
+    fn default_remove_vehicle(&self) {
+        let Some(old_vehicle) = self.vehicle() else {
+            return;
+        };
+
+        if !self.base().clear_vehicle_if(old_vehicle.id()) {
+            return;
+        }
+
+        old_vehicle.remove_passenger(self.as_entity_event_source());
+
+        if self
+            .removal_reason()
+            .is_none_or(RemovalReason::should_destroy)
+            && let Some(world) = self.level()
+        {
+            world.game_event_at(
+                &vanilla_game_events::ENTITY_DISMOUNT,
+                old_vehicle.position(),
+                &GameEventContext::new(Some(self.as_entity_event_source()), None),
+            );
+        }
+    }
+
+    /// Removes this entity from its current vehicle.
+    ///
+    /// Mirrors vanilla `Entity.removeVehicle`.
+    fn remove_vehicle(&self) {
+        self.default_remove_vehicle();
+    }
+
+    /// Removes passenger from this entity.
+    ///
+    /// Mirrors vanilla `Entity.removePassenger`.
+    fn remove_passenger(&self, passenger: &dyn Entity) {
+        assert!(
+            passenger
+                .vehicle()
+                .is_none_or(|vehicle| vehicle.id() != self.id()),
+            "Use passenger.stop_riding(), not vehicle.remove_passenger(passenger)"
+        );
+
+        self.base().remove_passenger_id(passenger.id());
+        passenger.base().set_boarding_cooldown(BOARDING_COOLDOWN);
+    }
+
+    /// Dismounts every passenger from this entity.
+    fn eject_passengers(&self) {
+        for passenger in self.passengers().into_iter().rev() {
+            passenger.stop_riding();
+        }
     }
 
     /// Starts riding `entity_to_ride` if vanilla boarding rules allow it.
@@ -696,8 +767,42 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
     /// Repositions a direct passenger from this vehicle's attachment point.
     ///
     /// Mirrors vanilla `Entity.positionRider`.
-    fn position_rider(&self, passenger: &dyn Entity) {
-        position_rider_default(self, passenger);
+    fn position_rider(&self, passenger: &dyn Entity) -> Result<(), EntityMoveError> {
+        if !self.has_passenger(passenger) {
+            return Ok(());
+        }
+
+        self.position_rider_with(passenger, set_position_move_function)
+    }
+
+    /// Repositions a passenger using the supplied movement function.
+    ///
+    /// Mirrors vanilla `Entity.positionRider(Entity, Entity.MoveFunction)`.
+    fn position_rider_with(
+        &self,
+        passenger: &dyn Entity,
+        move_function: EntityMoveFunction,
+    ) -> Result<(), EntityMoveError> {
+        position_rider_default(self, passenger, move_function)
+    }
+
+    /// Default implementation of vanilla `Entity.getDismountLocationForPassenger`.
+    fn default_dismount_location_for_passenger(&self) -> DVec3 {
+        let position = self.position();
+
+        DVec3::new(position.x, self.bounding_box().max_y(), position.z)
+    }
+
+    /// Returns the dismount location for `passenger`.
+    ///
+    /// Mirrors vanilla `Entity.getDismountLocationForPassenger`.
+    fn dismount_location_for_passenger(&self, passenger: &dyn LivingEntity) -> DVec3 {
+        if let Some(animal) = self.as_animal() {
+            return animal.dismount_location_for_passenger_animal(passenger);
+        }
+        // TODO: add dismount if statement for minecarts.
+
+        self.default_dismount_location_for_passenger()
     }
 
     /// Returns this entity's root vehicle ID, or this entity's ID when it is not riding.
@@ -869,8 +974,14 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
     fn default_ride_tick(&self) {
         self.set_velocity(DVec3::ZERO);
         self.tick();
-        if let Some(vehicle) = self.vehicle() {
-            vehicle.position_rider(self.as_entity_event_source());
+        if let Some(vehicle) = self.vehicle()
+            && let Err(error) = vehicle.position_rider(self.as_entity_event_source())
+        {
+            log::debug!(
+                "Failed to position passenger {} riding entity {}: {error}",
+                self.id(),
+                vehicle.id()
+            );
         }
     }
 
@@ -1119,10 +1230,34 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
         self.base().removal_reason()
     }
 
+    /// Default implementation of vanilla `Entity.setRemoved`.
+    fn default_set_removed(&self, reason: RemovalReason) {
+        let (stored_reason, first_removal) = self.base().mark_removed(reason);
+
+        if stored_reason.should_destroy() {
+            self.stop_riding();
+        }
+
+        for passenger in self.passengers() {
+            passenger.stop_riding();
+        }
+
+        if first_removal {
+            self.base().notify_removed(reason);
+        }
+
+        self.on_removal(reason);
+    }
+
     /// Marks the entity as removed with the given reason.
     fn set_removed(&self, reason: RemovalReason) {
-        self.base().set_removed(reason);
+        self.default_set_removed(reason);
     }
+
+    /// Runs entity-specific cleanup after removal.
+    ///
+    /// Mirrors vanilla `Entity.onRemoval`.
+    fn on_removal(&self, _reason: RemovalReason) {}
 
     /// Emits a vanilla game event from this entity's exact position with an explicit source entity.
     fn game_event_with_source_entity(
@@ -1725,6 +1860,11 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
     fn direction_yaw(&self) -> Direction {
         let (yaw, _) = self.rotation();
         Direction::from_yaw(yaw)
+    }
+
+    /// Returns the horizontal direction used for movement-dependent behavior.
+    fn motion_direction(&self) -> Direction {
+        self.direction_yaw()
     }
 
     /// Rotates this entity to face a fixed position.
@@ -2444,15 +2584,6 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
     #[must_use = "movement commits can fail when world entity state rejects the update"]
     fn try_set_position(&self, pos: DVec3) -> Result<(), EntityMoveError> {
         self.base().try_set_position(pos)
-    }
-
-    /// Moves this entity to `pos`, keeping its current rotation. Mirrors
-    /// vanilla `Entity.teleportTo(x, y, z)`
-    // TODO: Recursively reposition this entity's passengers (vanilla
-    // `Entity.teleportPassengers`, via `getSelfAndPassengers`)
-    #[must_use = "movement commits can fail when world entity state rejects the update"]
-    fn teleport_to(&self, pos: DVec3) -> Result<(), EntityMoveError> {
-        self.try_set_position(pos)
     }
 
     /// Sets the vanilla movement-trace old position to the current position.
@@ -3616,21 +3747,90 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
         dx * dx + dy * dy + dz * dz
     }
 
+    /// Absolutely snaps this entity to a position and rotation.
+    ///
+    /// Mirrors vanilla `Entity.absSnapTo`.
+    fn abs_snap_to(&self, position: DVec3, yaw: f32, pitch: f32) -> Result<(), EntityMoveError> {
+        let position = DVec3::new(
+            position.x.clamp(-HORIZONTAL_LIMIT, HORIZONTAL_LIMIT),
+            position.y,
+            position.z.clamp(-HORIZONTAL_LIMIT, HORIZONTAL_LIMIT),
+        );
+
+        self.try_set_position(position)?;
+        self.set_old_position_to_current();
+
+        self.abs_snap_rotation_to(yaw, pitch);
+
+        Ok(())
+    }
+
+    /// Absolutely snaps this entity's rotation.
+    ///
+    /// Mirrors vanilla `Entity.absSnapRotationTo`.
+    fn abs_snap_rotation_to(&self, yaw: f32, pitch: f32) {
+        self.set_rotation((yaw, pitch));
+        self.base().set_old_rotation_to_current();
+    }
+
+    /// Sets position while preserving current rotation.
+    fn snap_to_position(&self, position: DVec3) -> Result<(), EntityMoveError> {
+        let (yaw, pitch) = self.rotation();
+        self.snap_to(position, yaw, pitch)
+    }
+
     /// Sets position and rotation, matching vanilla `Entity.snapTo`.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the active world entity manager rejects the snap position. This is an invariant
-    /// failure for loaded entities.
-    fn snap_to(&self, position: DVec3, yaw: f32, pitch: f32) {
-        if let Err(error) = self.try_set_position(position) {
-            panic!(
-                "failed to commit entity {} snap position: {error}",
+    /// Returns an error if the entity manager rejects the position update.
+    fn snap_to(&self, position: DVec3, yaw: f32, pitch: f32) -> Result<(), EntityMoveError> {
+        self.try_set_position(position)?;
+        self.set_rotation((yaw, pitch));
+        self.set_old_position_to_current();
+        self.base().set_old_rotation_to_current();
+        Ok(())
+    }
+
+    /// Moves this entity to its final dismount position.
+    ///
+    /// Mirrors vanilla `Entity.dismountTo`.
+    fn dismount_to(&self, position: DVec3) {
+        if let Err(error) = self.teleport_to(position) {
+            log::warn!(
+                "failed to commit entity {} dismount position: {error}",
                 self.id()
             );
         }
-        self.set_rotation((yaw, pitch));
-        self.set_old_position_to_current();
+    }
+
+    /// Moves this entity to `pos`, keeping its current rotation. Mirrors
+    /// vanilla `Entity.teleportTo(x, y, z)`
+    fn teleport_to(&self, position: DVec3) -> Result<(), EntityMoveError> {
+        if self.level().is_none() {
+            return Ok(());
+        }
+
+        let (yaw, pitch) = self.rotation();
+        self.snap_to(position, yaw, pitch)?;
+        self.teleport_passengers()
+    }
+
+    /// Repositions every passenger after this entity teleports.
+    ///
+    /// Mirrors vanilla `Entity.teleportPassengers`.
+    fn teleport_passengers(&self) -> Result<(), EntityMoveError> {
+        let passengers = self.passengers();
+
+        for passenger in &passengers {
+            self.position_rider_with(passenger.as_ref(), snap_to_move_function)?;
+        }
+
+        for passenger in passengers {
+            passenger.teleport_passengers()?;
+        }
+
+        Ok(())
     }
 
     /// Runs when this entity causes another entity to die.
@@ -3654,20 +3854,20 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
 ///
 /// Shared between the [`Entity::position_rider`] default and entity overrides that
 /// extend it (e.g. `Chicken` mirroring the rider's body yaw).
-pub(crate) fn position_rider_default<E: Entity + ?Sized>(entity: &E, passenger: &dyn Entity) {
+pub(crate) fn position_rider_default<E: Entity + ?Sized>(
+    entity: &E,
+    passenger: &dyn Entity,
+    move_function: EntityMoveFunction,
+) -> Result<(), EntityMoveError> {
     if !entity.has_passenger(passenger) {
-        return;
+        return Ok(());
     }
 
     let riding_position = entity.passenger_riding_position(passenger);
     let vehicle_attachment = passenger.vehicle_attachment_point(entity.as_entity_event_source());
-    if let Err(error) = passenger.try_set_position(riding_position - vehicle_attachment) {
-        log::debug!(
-            "Failed to position passenger {} riding entity {}: {error}",
-            passenger.id(),
-            entity.id()
-        );
-    }
+    let position = riding_position - vehicle_attachment;
+
+    move_function(passenger, position)
 }
 
 pub(crate) fn apply_entity_look_at(entity: &dyn Entity, from_anchor: EntityAnchor, target: DVec3) {

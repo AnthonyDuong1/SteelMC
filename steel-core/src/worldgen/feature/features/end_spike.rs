@@ -185,7 +185,9 @@ impl FeatureDecorationRunner {
         ));
         crystal.set_beam_target(config.crystal_beam_target.map(BlockPos));
         crystal.set_invulnerable(config.crystal_invulnerable);
-        crystal.snap_to(position, random.next_f32() * DEGREE_360, 0.0);
+        if let Err(error) = crystal.snap_to(position, random.next_f32() * DEGREE_360, 0.0) {
+            panic!("failed to position newly constructed end crystal entity: {error}");
+        }
         let _ = region.add_fresh_entity(crystal);
 
         let crystal_pos = BlockPos::from(position);

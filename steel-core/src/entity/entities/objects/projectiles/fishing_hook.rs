@@ -120,6 +120,10 @@ impl FishingHookEntity {
     }
 
     /// Mimics Java's `FishingHook(Player, Level, int, int)` constructor. (But we don't need `level` here)
+    ///
+    /// # Panics
+    ///
+    /// Panics if positioning the fishing hook for casting fails.
     pub fn shoot_from_player(self: &Arc<Self>, player: &Arc<Player>, luck: i32, lure_speed: i32) {
         const MAGIC_OFFSET: f64 = 0.010_336_5;
 
@@ -143,7 +147,12 @@ impl FishingHookEntity {
         let y = player_shared.get_eye_y();
         let z = player_shared.position().z - f64::from(y_cos) * 0.3;
 
-        self.snap_to(DVec3::new(x, y, z), yaw, pitch);
+        if let Err(error) = self.snap_to(DVec3::new(x, y, z), yaw, pitch) {
+            panic!(
+                "failed to position fishing hook {} for casting: {error}",
+                self.id()
+            );
+        }
 
         let clamped_y = f64::from((-(x_sin / x_cos)).clamp(-5.0, 5.0));
 
@@ -919,7 +928,7 @@ impl Entity for FishingHookEntity {
     /// Marks entity as removed and clears owner info.
     fn set_removed(&self, reason: RemovalReason) {
         self.clear_owner_info();
-        self.base.set_removed(reason);
+        self.default_set_removed(reason);
     }
 
     /// Returns the ID of the owner, or of this `FishingHookEntity`, if it has no owner.

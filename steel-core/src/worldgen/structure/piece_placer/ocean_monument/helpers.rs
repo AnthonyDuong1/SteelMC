@@ -188,7 +188,7 @@ pub(super) fn spawn_elder(placer: &mut ScatteredFeaturePlacer<'_, '_>, x: i32, y
         &vanilla_entities::ELDER_GUARDIAN,
     ));
     entity.set_persistence_required();
-    entity.snap_to(
+    if let Err(error) = entity.snap_to(
         DVec3::new(
             f64::from(pos.x()) + 0.5,
             f64::from(pos.y()),
@@ -196,7 +196,9 @@ pub(super) fn spawn_elder(placer: &mut ScatteredFeaturePlacer<'_, '_>, x: i32, y
         ),
         0.0,
         0.0,
-    );
+    ) {
+        panic!("failed to position newly constructed elder guardian entity: {error}");
+    }
     let _ = placer.add_fresh_entity(entity);
 }
 

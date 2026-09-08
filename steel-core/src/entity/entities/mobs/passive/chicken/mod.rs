@@ -35,9 +35,10 @@ use crate::entity::ai::goal::{
 use crate::entity::ai::path::PathType;
 use crate::entity::damage::DamageSource;
 use crate::entity::{
-    AgeableMob, AgeableMobBase, Animal, AnimalBase, Entity, EntityBase, EntityBaseLoad, EntityPose,
-    EntitySpawnReason, EntitySyncedData, LivingEntity, LivingEntityBase, Mob, MobBase,
-    PathfinderMob, SpawnGroupData, entity_loot_ref, position_rider_default,
+    AgeableMob, AgeableMobBase, Animal, AnimalBase, Entity, EntityBase, EntityBaseLoad,
+    EntityMoveError, EntityMoveFunction, EntityPose, EntitySpawnReason, EntitySyncedData,
+    LivingEntity, LivingEntityBase, Mob, MobBase, PathfinderMob, SpawnGroupData, entity_loot_ref,
+    position_rider_default,
 };
 use crate::physics::MoveResult;
 use crate::player::Player;
@@ -442,11 +443,17 @@ impl Entity for ChickenEntity {
         state.next_flap = fly_dist + state.flap_speed / NEXT_FLAP_SPEED_DIVISOR;
     }
 
-    fn position_rider(&self, passenger: &dyn Entity) {
-        position_rider_default(self, passenger);
+    fn position_rider_with(
+        &self,
+        passenger: &dyn Entity,
+        move_function: EntityMoveFunction,
+    ) -> Result<(), EntityMoveError> {
+        position_rider_default(self, passenger, move_function)?;
         if let Some(living) = passenger.as_living_entity() {
             living.set_y_body_rot(self.y_body_rot());
         }
+
+        Ok(())
     }
 
     fn save_additional(&self, nbt: &mut NbtCompound) {

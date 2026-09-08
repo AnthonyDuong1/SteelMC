@@ -7,7 +7,7 @@ use super::super::{
     end_gateway, end_portal, is_allowed_to_enter_portal, nether_portal, vanilla_entities,
 };
 use super::{JobPoll, ServerJob, ServerJobContext};
-use crate::entity::LivingEntity as _;
+use crate::entity::{Entity as _, LivingEntity as _};
 
 pub(in crate::server) struct RootVehicleRestoreJob {
     player: Arc<Player>,
@@ -833,7 +833,15 @@ fn restore_root_vehicle_for_player(
 
     let player_entity: SharedEntity = player.clone();
     EntityBase::restore_passenger_relationship(&attach_entity, &player_entity);
-    attach_entity.position_rider(player.as_ref());
+
+    if let Err(error) = attach_entity.position_rider(player.as_ref()) {
+        tracing::debug!(
+            passenger = player.id(),
+            vehicle = attach_entity.id(),
+            "Failed to position restored passenger: {error}"
+        );
+    }
+
     player.send_restored_vehicle_mount_sync(attach_entity.as_ref());
 
     world.mark_chunk_dirty(root_chunk);

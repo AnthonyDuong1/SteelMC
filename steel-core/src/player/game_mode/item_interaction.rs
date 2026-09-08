@@ -197,7 +197,7 @@ impl Player {
             target_component(packet.x_rot, current_rotation.1),
         );
         if target_rotation != current_rotation {
-            self.set_rotation(target_rotation);
+            self.abs_snap_rotation_to(target_rotation.0, target_rotation.1);
         }
 
         let world = self.get_world();

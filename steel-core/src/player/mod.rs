@@ -1469,10 +1469,12 @@ impl Entity for Player {
         self.check_riding_statistics(self.position() - pre);
     }
 
-    fn stop_riding(&self) {
+    fn remove_vehicle(&self) {
         let old_vehicle = self.vehicle();
-        self.base().stop_riding();
-        self.base.set_boarding_cooldown(0);
+
+        self.default_remove_vehicle();
+        self.base().set_boarding_cooldown(0);
+
         let Some(old_vehicle) = old_vehicle else {
             return;
         };
@@ -1484,9 +1486,27 @@ impl Entity for Player {
         ));
     }
 
-    fn teleport_to(&self, pos: DVec3) -> Result<(), EntityMoveError> {
+    fn snap_to_position(&self, position: DVec3) -> Result<(), EntityMoveError> {
         let (yaw, pitch) = self.rotation();
-        self.teleport(pos, yaw, pitch)
+        self.snap_to(position, yaw, pitch)?;
+
+        self.movement.lock().reset_position(self.position());
+        Ok(())
+    }
+
+    fn teleport_to(&self, position: DVec3) -> Result<(), EntityMoveError> {
+        let velocity = self.velocity();
+        let rotation = self.rotation();
+
+        self.teleport_with_velocity_packet(
+            position,
+            velocity,
+            rotation,
+            position,
+            DVec3::ZERO,
+            (0.0, 0.0),
+            RelativeMovement::DELTA.union(RelativeMovement::ROTATION),
+        )
     }
 
     fn start_riding(&self, entity_to_ride: &SharedEntity) -> bool {
@@ -1500,7 +1520,14 @@ impl Entity for Player {
             return false;
         }
 
-        entity_to_ride.position_rider(self.as_entity_event_source());
+        if let Err(error) = entity_to_ride.position_rider(self.as_entity_event_source()) {
+            log::debug!(
+                "Failed to position passenger {} riding entity {}: {error}",
+                self.id(),
+                entity_to_ride.id()
+            );
+        }
+
         let position = self.position();
         let (yaw, pitch) = self.rotation();
         if let Err(error) = self.teleport(position, yaw, pitch) {
@@ -2106,6 +2133,14 @@ impl LivingEntity for Player {
         self.broadcast_entity_event(slot.into());
         self.refresh_equipment_attribute_modifiers(slot);
         self.award_stat(&vanilla_stat_types::ITEM_BROKEN, item);
+    }
+
+    fn dismount_poses(&self) -> &'static [EntityPose] {
+        &[
+            EntityPose::Standing,
+            EntityPose::Sneaking,
+            EntityPose::Swimming,
+        ]
     }
 }
 
