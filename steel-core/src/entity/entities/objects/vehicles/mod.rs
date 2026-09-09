@@ -7,7 +7,7 @@ mod minecart_behavior;
 mod old_minecart_behavior;
 mod vehicle_entity;
 
-pub use abstract_minecart::AbstractMinecart;
+pub use abstract_minecart::{AbstractMinecart, AbstractMinecartBase};
 pub use chest_minecart::ChestMinecartEntity;
 pub use minecart::MinecartEntity;
 pub use minecart_behavior::MinecartBehavior;
