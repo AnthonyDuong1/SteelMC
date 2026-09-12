@@ -59,7 +59,7 @@ impl AbstractMinecartBase {
         self.state.lock().on_rails
     }
 
-    pub(super) fn set_on_rails(&self, value: bool) {
+    pub fn set_on_rails(&self, value: bool) {
         self.state.lock().on_rails = value;
     }
 
@@ -67,7 +67,7 @@ impl AbstractMinecartBase {
         self.state.lock().flipped
     }
 
-    pub(super) fn set_flipped(&self, flipped: bool) {
+    pub fn set_flipped(&self, flipped: bool) {
         self.state.lock().flipped = flipped;
     }
 }
@@ -246,6 +246,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
         self.minecart_behavior()
             .tick(self.as_abstract_minecart_event_source(), &world);
         self.refresh_fluid_contact_for_base_tick();
+        self.base().reset_fall_distance_in_water();
 
         if self.is_in_lava() {
             self.lava_ignite();
@@ -253,7 +254,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
             self.set_fall_distance(self.fall_distance() * 0.5);
         }
 
-        // TODO: set first tick to false
+        self.set_first_tick(false);
     }
 
     /// Applies natural slowdown to the minecart movement.
@@ -315,8 +316,12 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
         xa /= dd;
         za /= dd;
         let pow = (1.0 / dd).min(1.0);
-        xa *= pow * 0.1 * 0.5;
-        za *= pow * 0.1 * 0.5;
+        xa *= pow;
+        za *= pow;
+        xa *= f64::from(0.1_f32);
+        za *= f64::from(0.1_f32);
+        xa *= 0.5;
+        za *= 0.5;
 
         if let Some(other_minecart) = other.as_abstract_minecart() {
             self.push_other_minecart(other_minecart, xa, za);
@@ -407,6 +412,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
             nbt.insert("DisplayOffset", self.display_offset());
         }
         nbt.insert("FlippedRotation", i8::from(self.minecart_base().flipped()));
+        nbt.insert("HasTicked", i8::from(self.is_first_tick()));
     }
 
     /// Mirrors `AbstractMinecart.readAdditionalSaveData`'s base-class portion.
@@ -419,6 +425,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
 
         let flipped = nbt.byte("FlippedRotation").unwrap_or(0) != 0;
         self.minecart_base().set_flipped(flipped);
+        self.set_first_tick(nbt.byte("HasTicked").unwrap_or(0) != 0);
     }
 }
 

@@ -133,6 +133,11 @@ impl ItemStack {
         self.count -= amount;
     }
 
+    /// Decreases the count by one.
+    pub const fn shrink_one(&mut self) {
+        self.count -= 1;
+    }
+
     /// Decreases the count by the given amount, unless the user has infinite
     /// materials.
     ///
@@ -284,7 +289,7 @@ impl ItemStack {
             // TODO: Call onEquippedItemBroken callback which:
             // - Broadcasts entity event (byte 47 for mainhand) for break sound/particles
             // - Stops location-based effects (removes attribute modifiers)
-            self.shrink(1);
+            self.shrink_one();
             return true;
         }
 
@@ -763,9 +768,21 @@ impl ItemStack {
 
     /// Applies furnace smelting to convert this item (e.g., raw iron -> iron ingot).
     pub fn apply_furnace_smelt(&mut self, use_input_count: bool) {
-        if let Some(result) = REGISTRY.recipes.find_smelting_result(self, use_input_count) {
-            *self = result;
-        }
+        let input = crate::recipe::SingleItemRecipeInput::new(self.copy_with_count(self.count()));
+        let Some(recipe) = REGISTRY
+            .recipes
+            .find_match(&crate::recipe::vanilla_recipe_types::SMELTING, &input)
+        else {
+            return;
+        };
+        let count = if use_input_count { self.count() } else { 1 };
+        let mut result = recipe.data().result.create();
+        result.set_count(
+            count
+                .saturating_mul(result.count())
+                .min(result.max_stack_size()),
+        );
+        *self = result;
     }
 
     /// Creates an exploration map pointing to a structure.
