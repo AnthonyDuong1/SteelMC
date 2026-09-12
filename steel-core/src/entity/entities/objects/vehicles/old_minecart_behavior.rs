@@ -12,6 +12,10 @@
 
 use glam::DVec3;
 use glam::Vec3Swizzles;
+<<<<<<< HEAD
+=======
+use steel_math::wrap_degrees;
+>>>>>>> 4297eaa909cb69c60b9936774ab3a961c5dcd01f
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::{
     BlockStateProperties, BoolProperty, EnumProperty, RailShape,
@@ -19,7 +23,10 @@ use steel_registry::blocks::properties::{
 use steel_registry::vanilla_block_tags::BlockTag;
 use steel_registry::vanilla_blocks;
 use steel_registry::vanilla_entities;
+<<<<<<< HEAD
 use steel_utils::angle::wrap_degrees;
+=======
+>>>>>>> 4297eaa909cb69c60b9936774ab3a961c5dcd01f
 use steel_utils::{BlockPos, Direction};
 
 use super::abstract_minecart::{AbstractMinecart, rail_exits};
@@ -46,6 +53,10 @@ const PLAYER_NUDGE_ACCELERATION: f64 = 0.001;
 const PLAYER_NUDGE_MAX_SPEED_SQUARED: f64 = 0.01;
 const MINECART_RIDABLE_THRESHOLD: f64 = 0.01;
 const MIN_ROTATION_DISTANCE_SQUARED: f64 = 0.001;
+<<<<<<< HEAD
+=======
+const ENTITY_INTERACTION_INFLATION: f64 = 0.2_f32 as f64;
+>>>>>>> 4297eaa909cb69c60b9936774ab3a961c5dcd01f
 
 #[derive(Debug, Default)]
 pub struct OldMinecartBehavior;
@@ -80,7 +91,15 @@ impl MinecartBehavior for OldMinecartBehavior {
             return false;
         };
 
+<<<<<<< HEAD
         let hitbox = minecart.bounding_box().inflate_xyz(0.2, 0.0, 0.2);
+=======
+        let hitbox = minecart.bounding_box().inflate_xyz(
+            ENTITY_INTERACTION_INFLATION,
+            0.0,
+            ENTITY_INTERACTION_INFLATION,
+        );
+>>>>>>> 4297eaa909cb69c60b9936774ab3a961c5dcd01f
 
         if minecart.is_rideable()
             && minecart.velocity().xz().length_squared() >= MINECART_RIDABLE_THRESHOLD
