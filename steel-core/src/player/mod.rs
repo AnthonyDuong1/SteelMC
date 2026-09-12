@@ -1495,7 +1495,7 @@ impl Entity for Player {
     }
 
     fn teleport_to(&self, position: DVec3) -> Result<(), EntityMoveError> {
-        let velocity = self.velocity();
+        let velocity = self.known_movement() + DVec3::ZERO;
         let rotation = self.rotation();
 
         self.teleport_with_velocity_packet(
