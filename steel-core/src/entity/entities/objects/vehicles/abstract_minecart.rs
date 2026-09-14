@@ -49,16 +49,19 @@ struct AbstractMinecartState {
 }
 
 impl AbstractMinecartBase {
+    /// Creates a new [`AbstractMinecartBase`] with default values.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Returns whether the minecart is on rails.
     #[must_use]
     pub fn on_rails(&self) -> bool {
         self.state.lock().on_rails
     }
 
+    /// Sets whether the minecart is on rails.
     pub fn set_on_rails(&self, value: bool) {
         self.state.lock().on_rails = value;
     }
@@ -67,6 +70,7 @@ impl AbstractMinecartBase {
         self.state.lock().flipped
     }
 
+    /// Sets whether the minecart's movement-facing rotation is flipped.
     pub fn set_flipped(&self, flipped: bool) {
         self.state.lock().flipped = flipped;
     }
