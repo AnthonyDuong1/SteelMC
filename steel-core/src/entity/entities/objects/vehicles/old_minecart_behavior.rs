@@ -1,14 +1,4 @@
 //! Vanilla `OldMinecartBehavior` — the non-experimental default movement.
-//!
-//! `AbstractMinecart` picks between `OldMinecartBehavior` and
-//! `NewMinecartBehavior` based on `FeatureFlags.MINECART_IMPROVEMENTS`
-//! (`useExperimentalMovement`). Steel has no feature-flag system yet, so
-//! this only ports the old (default, non-experimental) behavior — the one
-//! every unmodified vanilla world actually runs.
-//!
-//! TODO(minecart-improvements): once Steel has a per-world feature-flag
-//! system, add `NewMinecartBehavior`'s connection-interpolated movement as
-//! an alternate `MinecartBehavior` impl, selected the same way vanilla does.
 
 use glam::DVec3;
 use glam::Vec3Swizzles;
@@ -423,7 +413,7 @@ impl OldMinecartBehavior {
         let (old_position, position) = (minecart.old_position(), minecart.position());
         let (x_diff, z_diff) = (old_position.x - position.x, old_position.z - position.z);
         if x_diff * x_diff + z_diff * z_diff > MIN_ROTATION_DISTANCE_SQUARED {
-            let mut yaw = z_diff.atan2(x_diff).to_degrees() as f32;
+            let mut yaw = z_diff.atan2(x_diff).to_degrees() as f32; // TODO: implement vanilla's own ATAN function.
             if minecart.is_flipped() {
                 yaw += 180.0;
             }

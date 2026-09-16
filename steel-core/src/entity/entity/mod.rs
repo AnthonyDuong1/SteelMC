@@ -1811,7 +1811,7 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
         Direction::from_yaw(yaw)
     }
 
-    /// Returns the horizontal direction used for movement-dependant behavior.
+    /// Returns the horizontal direction used for movement-dependent behavior.
     fn motion_direction(&self) -> Direction {
         self.direction_yaw()
     }

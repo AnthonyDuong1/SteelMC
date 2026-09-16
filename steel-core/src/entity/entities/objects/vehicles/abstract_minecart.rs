@@ -1,9 +1,4 @@
 //! Shared vanilla `AbstractMinecart` state and behavior.
-//!
-//! `AbstractMinecartState` holds the two fields vanilla never networks
-//! (`onRails`, `flipped`). The trait is named `AbstractMinecart` to match
-//! the vanilla class it ports — same convention as the `Entity` trait —
-//! now that the struct doesn't need that name too.
 
 use glam::DVec3;
 use simdnbt::borrow::NbtCompound as BorrowedNbtCompoundView;
@@ -179,6 +174,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
 
     /// Returns whether this minecart can collide with `other`.
     fn minecart_can_collide_with(&self, other: &dyn Entity) -> bool {
+        // TODO: Use AbstractBoat's canVehicleCollide
         (other.can_be_collided_with(Some(self.as_entity_event_source())) || other.is_pushable())
             && !self.is_passenger_of_same_vehicle(other)
     }
@@ -335,12 +331,13 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
         }
     }
 
+    #[expect(
+        clippy::manual_midpoint,
+        reason = "midpoint would change overflow vs vanilla"
+    )]
     /// Mirrors `AbstractMinecart.pushOtherMinecart`.
-    ///
-    /// Steel has no experimental-movement feature flag yet, so this always
-    /// takes vanilla's non-experimental branch: direction comes from relative
-    /// position rather than this minecart's own velocity.
     fn push_other_minecart(&self, other_minecart: &dyn AbstractMinecart, xa: f64, za: f64) {
+        // TODO: Add experimental movement check
         let xo = other_minecart.position().x - self.position().x;
         let zo = other_minecart.position().z - self.position().z;
 
@@ -370,8 +367,8 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
             other_minecart.push_impulse(DVec3::new(movement.x + xa, 0.0, movement.z + za));
             self.set_velocity(movement * DVec3::new(0.95, 1.0, 0.95));
         } else {
-            let xdd = f64::midpoint(other_movement.x, movement.x);
-            let zdd = f64::midpoint(other_movement.z, movement.z);
+            let xdd = (other_movement.x + movement.x) / 2.0;
+            let zdd = (other_movement.z + movement.z) / 2.0;
             self.set_velocity(movement * DVec3::new(0.2, 1.0, 0.2));
             self.push_impulse(DVec3::new(xdd - xa, 0.0, zdd - za));
             other_minecart.set_velocity(other_movement * DVec3::new(0.2, 1.0, 0.2));
