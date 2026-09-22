@@ -27,7 +27,6 @@ const MAX_SPEED_IN_WATER: f64 = 0.2;
 const MAX_SPEED_ON_LAND: f64 = 0.4;
 const ABSOLUTE_MAX_SPEED: f64 = 0.4;
 const POWERED_RAIL_ACCEL: f64 = 0.06;
-/// Vanilla powered-rail kickstart speed when starting from rest.
 const POWERED_RAIL_KICKSTART: f64 = 0.02;
 const RIDDEN_SLOWDOWN_FACTOR: f64 = 0.997;
 const EMPTY_SLOWDOWN_FACTOR: f64 = 0.96;
