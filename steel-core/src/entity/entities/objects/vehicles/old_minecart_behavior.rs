@@ -1,4 +1,4 @@
-//! Vanilla `OldMinecartBehavior` — the non-experimental default movement.
+//! Vanilla `OldMinecartBehavior`.
 
 use glam::DVec3;
 use glam::Vec3Swizzles;

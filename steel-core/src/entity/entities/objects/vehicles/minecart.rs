@@ -1,5 +1,4 @@
-//! Vanilla rideable minecart. Uses the real generated `MinecartEntityData`
-//! for all networked state.
+//! Vanilla rideable minecart.
 
 use std::sync::Weak;
 

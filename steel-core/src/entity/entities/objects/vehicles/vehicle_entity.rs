@@ -1,4 +1,5 @@
 //! Shared vanilla `VehicleEntity` damage handling.
+
 use crate::entity::{DamageSource, Entity, RemovalReason};
 use crate::world::World;
 use steel_registry::data_components::vanilla_components::CUSTOM_NAME;
