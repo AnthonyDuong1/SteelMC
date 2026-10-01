@@ -1,9 +1,4 @@
 //! Shared vanilla `AbstractMinecart` state and behavior.
-//!
-//! `AbstractMinecartState` holds the two fields vanilla never networks
-//! (`onRails`, `flipped`). The trait is named `AbstractMinecart` to match
-//! the vanilla class it ports — same convention as the `Entity` trait —
-//! now that the struct doesn't need that name too.
 
 use glam::DVec3;
 use simdnbt::borrow::NbtCompound as BorrowedNbtCompoundView;
@@ -136,6 +131,12 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
         true
     }
 
+    /// Returns whether this minecart can collide with `other`.
+    fn minecart_can_collide_with(&self, other: &dyn Entity) -> bool {
+        (other.can_be_collided_with(Some(self.as_entity_event_source())) || other.is_pushable())
+            && !self.is_passenger_of_same_vehicle(other)
+    }
+
     /// Returns the vertical offset of the minecart's display block.
     fn display_offset(&self) -> i32;
 
@@ -154,7 +155,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
     }
 
     /// Mirrors `AbstractMinecart.activateMinecart`. Default does nothing.
-    fn on_activator_rail(&self, _world: &World, _pos: BlockPos, _powered: bool) {}
+    fn activate_minecart(&self, _world: &World, _pos: BlockPos, _powered: bool) {}
 
     /// Returns whether this minecart is rideable.
     fn is_rideable(&self) -> bool {
@@ -175,12 +176,6 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
     /// Returns whether this minecart is a furnace minecart.
     fn is_furnace(&self) -> bool {
         false
-    }
-
-    /// Returns whether this minecart can collide with `other`.
-    fn minecart_can_collide_with(&self, other: &dyn Entity) -> bool {
-        (other.can_be_collided_with(Some(self.as_entity_event_source())) || other.is_pushable())
-            && !self.is_passenger_of_same_vehicle(other)
     }
 
     /// Mirrors `AbstractMinecart.getCurrentBlockPosOrRailBelow`.

@@ -1,5 +1,4 @@
-//! Vanilla rideable minecart. Uses the real generated `MinecartEntityData`
-//! for all networked state.
+//! Vanilla rideable minecart.
 
 use std::sync::Weak;
 
@@ -182,8 +181,7 @@ impl AbstractMinecart for MinecartEntity {
             .set(value);
     }
 
-    /// Mirrors `Minecart.activateMinecart`
-    fn on_activator_rail(&self, _world: &World, _pos: BlockPos, powered: bool) {
+    fn activate_minecart(&self, _world: &World, _pos: BlockPos, powered: bool) {
         if !powered {
             return;
         }

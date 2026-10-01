@@ -4,9 +4,8 @@ use steel_utils::Direction;
 use super::abstract_minecart::AbstractMinecart;
 use crate::world::World;
 
-/// A minecart movement strategy — vanilla `MinecartBehavior`.
+/// Shared minecart movement behavior.
 ///
-/// `OldMinecartBehavior` is the only implementation today.
 /// TODO(minecart-improvements): add `NewMinecartBehavior` once Steel can
 /// select it using the corresponding world feature flag.
 pub trait MinecartBehavior: Send + Sync {
