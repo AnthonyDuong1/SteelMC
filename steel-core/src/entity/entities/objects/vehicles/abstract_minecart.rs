@@ -178,16 +178,6 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
         false
     }
 
-<<<<<<< HEAD
-=======
-    /// Returns whether this minecart can collide with `other`.
-    fn minecart_can_collide_with(&self, other: &dyn Entity) -> bool {
-        // TODO: Use AbstractBoat's canVehicleCollide
-        (other.can_be_collided_with(Some(self.as_entity_event_source())) || other.is_pushable())
-            && !self.is_passenger_of_same_vehicle(other)
-    }
-
->>>>>>> 1e69cf0e04d7b27c4033d9c467cc38d7206afaf2
     /// Mirrors `AbstractMinecart.getCurrentBlockPosOrRailBelow`.
     fn current_block_pos_or_rail_below(&self, world: &World) -> BlockPos {
         let pos = self.position();
