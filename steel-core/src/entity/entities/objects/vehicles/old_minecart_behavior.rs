@@ -51,7 +51,7 @@ impl MinecartBehavior for OldMinecartBehavior {
         if on_rails {
             self.move_along_track(minecart, world);
             if block_state.get_block() == &vanilla_blocks::ACTIVATOR_RAIL {
-                minecart.on_activator_rail(world, pos, block_state.get_value(POWERED));
+                minecart.activate_minecart(world, pos, block_state.get_value(POWERED));
             }
         } else {
             minecart.come_off_track();

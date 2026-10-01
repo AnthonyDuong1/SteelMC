@@ -613,7 +613,7 @@ impl Chunk {
     /// Returns the weak reference to the world.
     #[must_use]
     pub(crate) fn level_weak(&self) -> Weak<World> {
-        self.level.clone()
+        Weak::clone(&self.level)
     }
 
     /// Returns a reference to the world if it is still alive.
@@ -757,7 +757,7 @@ impl Chunk {
             }
 
             let behavior = BLOCK_BEHAVIORS.get_behavior(state.get_block());
-            let creation = behavior.new_block_entity(self.level.clone(), pos, state);
+            let creation = behavior.new_block_entity(Weak::clone(&self.level), pos, state);
             match self.commit_pending_creation(pos, state, creation) {
                 PendingPromotionCommit::Retry => {}
                 PendingPromotionCommit::Complete(block_entity) => return block_entity,
@@ -1168,7 +1168,7 @@ mod tests {
     use crate::behavior::{BlockEntityCreation, init_behaviors};
     use crate::block_entity::{
         BlockEntityLifecycleExt as _, SharedBlockEntity,
-        entities::{RawBlockEntity, SignBlockEntity},
+        entities::{SignBlockEntity, UnimplementedBlockEntity},
         init_block_entities,
     };
     use crate::chunk::{
@@ -1622,7 +1622,7 @@ mod tests {
                 .is_some()
         );
         proto.set_pending_block_entity(pos);
-        let stale_entity: SharedBlockEntity = Arc::new(RawBlockEntity::new(
+        let stale_entity: SharedBlockEntity = Arc::new(UnimplementedBlockEntity::new(
             &vanilla_block_entity_types::CHEST,
             Weak::new(),
             pos,
