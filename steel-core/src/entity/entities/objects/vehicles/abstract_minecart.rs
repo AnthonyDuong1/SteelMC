@@ -108,6 +108,12 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
         6
     }
 
+    /// Returns the minecart's max speed.
+    fn max_speed(&self, world: &World) -> f64 {
+        self.minecart_behavior()
+            .max_speed(self.as_abstract_minecart_event_source(), world)
+    }
+
     /// Returns the default gravity of this minecart.
     fn minecart_default_gravity(&self) -> f64 {
         if self.is_in_water() {
@@ -275,9 +281,8 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
     }
 
     /// Slows down the minecart when it comes off the track.
-    fn come_off_track(&self) {
-        let behavior = self.minecart_behavior();
-        let max_speed = behavior.max_speed(self.as_abstract_minecart_event_source());
+    fn come_off_track(&self, world: &World) {
+        let max_speed = self.max_speed(world);
         let velocity = self.velocity();
         let mut velocity = DVec3::new(
             velocity.x.clamp(-max_speed, max_speed),

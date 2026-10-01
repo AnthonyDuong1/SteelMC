@@ -29,7 +29,7 @@ pub trait MinecartBehavior: Send + Sync {
     }
 
     /// Returns the maximum speed of this minecart.
-    fn max_speed(&self, minecart: &dyn AbstractMinecart) -> f64;
+    fn max_speed(&self, minecart: &dyn AbstractMinecart, world: &World) -> f64;
 
     /// Returns the slowdown factor of this minecart.
     fn slowdown_factor(&self, minecart: &dyn AbstractMinecart) -> f64;

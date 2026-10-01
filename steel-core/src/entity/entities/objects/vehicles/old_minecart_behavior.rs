@@ -54,7 +54,7 @@ impl MinecartBehavior for OldMinecartBehavior {
                 minecart.activate_minecart(world, pos, block_state.get_value(POWERED));
             }
         } else {
-            minecart.come_off_track();
+            minecart.come_off_track(world);
         }
 
         minecart.apply_effects_from_blocks();
@@ -140,7 +140,7 @@ impl MinecartBehavior for OldMinecartBehavior {
         }
     }
 
-    fn max_speed(&self, minecart: &dyn AbstractMinecart) -> f64 {
+    fn max_speed(&self, minecart: &dyn AbstractMinecart, _world: &World) -> f64 {
         if minecart.is_in_water() {
             MAX_SPEED_IN_WATER
         } else {
@@ -279,7 +279,7 @@ impl MinecartBehavior for OldMinecartBehavior {
         } else {
             1.0
         };
-        let max_speed = self.max_speed(minecart);
+        let max_speed = minecart.max_speed(world);
         let velocity = minecart.velocity();
         let clamped = DVec3::new(
             (scale * velocity.x).clamp(-max_speed, max_speed),
