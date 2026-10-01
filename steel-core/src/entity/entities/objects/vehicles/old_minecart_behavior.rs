@@ -2,7 +2,7 @@
 
 use glam::DVec3;
 use glam::Vec3Swizzles;
-use steel_math::wrap_degrees;
+use steel_math::{DEGREE_180, DEGREE_360, wrap_degrees};
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::{
     BlockStateProperties, BoolProperty, EnumProperty, RailShape,
@@ -414,7 +414,7 @@ impl OldMinecartBehavior {
         if x_diff * x_diff + z_diff * z_diff > MIN_ROTATION_DISTANCE_SQUARED {
             let mut yaw = z_diff.atan2(x_diff).to_degrees() as f32; // TODO: implement vanilla's own ATAN function.
             if minecart.is_flipped() {
-                yaw += 180.0;
+                yaw += DEGREE_180;
             }
             minecart.set_rotation((yaw, minecart.rotation().1));
         }
@@ -422,9 +422,12 @@ impl OldMinecartBehavior {
         let rot_diff = wrap_degrees(minecart.rotation().0 - minecart.base().old_rotation().0);
         if rot_diff < -170.0 || rot_diff >= 170.0 {
             minecart.minecart_base().set_flipped(!minecart.is_flipped());
-            minecart.set_rotation((minecart.rotation().0 + 180.0, minecart.rotation().1));
+            minecart.set_rotation((minecart.rotation().0 + DEGREE_180, minecart.rotation().1));
         }
-        minecart.set_rotation((minecart.rotation().0 % 360.0, minecart.rotation().1 % 360.0));
+        minecart.set_rotation((
+            minecart.rotation().0 % DEGREE_360,
+            minecart.rotation().1 % DEGREE_360,
+        ));
     }
 }
 
