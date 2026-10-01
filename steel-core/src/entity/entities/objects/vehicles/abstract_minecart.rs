@@ -69,6 +69,11 @@ impl AbstractMinecartBase {
     pub fn set_flipped(&self, flipped: bool) {
         self.state.lock().flipped = flipped;
     }
+
+    pub fn toggle_flipped(&self) {
+        let mut state = self.state.lock();
+        state.flipped = !state.flipped;
+    }
 }
 
 /// Object-safe access to an abstract minecart trait object from default [`AbstractMinecart`] methods.

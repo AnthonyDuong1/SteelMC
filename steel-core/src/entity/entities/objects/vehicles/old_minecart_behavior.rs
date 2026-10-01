@@ -421,7 +421,7 @@ impl OldMinecartBehavior {
 
         let rot_diff = wrap_degrees(minecart.rotation().0 - minecart.base().old_rotation().0);
         if rot_diff < -170.0 || rot_diff >= 170.0 {
-            minecart.minecart_base().set_flipped(!minecart.is_flipped());
+            minecart.minecart_base().toggle_flipped();
             minecart.set_rotation((minecart.rotation().0 + DEGREE_180, minecart.rotation().1));
         }
         minecart.set_rotation((
