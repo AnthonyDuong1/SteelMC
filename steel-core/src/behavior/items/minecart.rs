@@ -87,7 +87,7 @@ impl ItemBehavior for MinecartItem {
         // location and fails the interaction if there is one.
 
         if let Err(error) = context.world.try_add_entity(cart) {
-            log::warn!("Failed to add minecart {}: {error}", self.entity_type.key,);
+            log::warn!("Failed to add minecart {}: {error}", self.entity_type.key);
         }
 
         context.world.game_event(

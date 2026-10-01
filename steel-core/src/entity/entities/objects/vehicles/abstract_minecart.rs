@@ -70,6 +70,7 @@ impl AbstractMinecartBase {
         self.state.lock().flipped = flipped;
     }
 
+    /// Toggles whether the minecart's movement-facing rotation is flipped.
     pub fn toggle_flipped(&self) {
         let mut state = self.state.lock();
         state.flipped = !state.flipped;
