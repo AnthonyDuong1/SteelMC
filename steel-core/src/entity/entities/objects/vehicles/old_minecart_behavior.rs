@@ -156,6 +156,7 @@ impl MinecartBehavior for OldMinecartBehavior {
         }
     }
 
+    #[expect(clippy::too_many_lines, reason = "keeping it together makes it easier to audit")]
     fn move_along_track(&self, minecart: &dyn AbstractMinecart, world: &World) {
         let pos = minecart.current_block_pos_or_rail_below(world);
         let state = world.get_block_state(pos);
