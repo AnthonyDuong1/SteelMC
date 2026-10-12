@@ -568,3 +568,7 @@ pub(crate) fn create_minecart(
 
     Some(cart)
 }
+
+#[cfg(test)]
+#[path = "tests/abstract_minecart.rs"]
+mod tests;

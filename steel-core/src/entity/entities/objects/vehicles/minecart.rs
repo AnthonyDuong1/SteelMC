@@ -21,7 +21,7 @@ use super::abstract_minecart::{
 };
 use super::minecart_behavior::MinecartBehavior;
 use super::old_minecart_behavior::OldMinecartBehavior;
-use super::vehicle_entity::VehicleEntity;
+use super::vehicle_entity::{VEHICLE_HURT_DURATION_TICKS, VehicleEntity};
 use crate::behavior::InteractionResult;
 use crate::entity::{
     DamageSource, Entity, EntityBase, EntityBaseLoad, EntityEventSource, EntityMovementEmission,
@@ -30,6 +30,8 @@ use crate::entity::{
 use crate::physics::{MoveResult, MoverType};
 use crate::player::Player;
 use crate::world::World;
+
+const ACTIVATOR_RAIL_DAMAGE: f32 = 50.0;
 
 /// A minecart entity.
 #[entity_behavior(class = "Minecart")]
@@ -191,8 +193,8 @@ impl AbstractMinecart for MinecartEntity {
         }
         if self.hurt_time() == 0 {
             self.set_hurt_dir(-self.hurt_dir());
-            self.set_hurt_time(10);
-            self.set_damage(50.0);
+            self.set_hurt_time(VEHICLE_HURT_DURATION_TICKS);
+            self.set_damage(ACTIVATOR_RAIL_DAMAGE);
             self.mark_hurt();
         }
     }
@@ -319,3 +321,7 @@ impl Entity for MinecartEntity {
 
     // TODO: Implement getPickResult.
 }
+
+#[cfg(test)]
+#[path = "tests/minecart.rs"]
+mod tests;

@@ -8,8 +8,9 @@ use steel_registry::items::ItemRef;
 use steel_registry::vanilla_game_events;
 use steel_registry::vanilla_game_rules::ENTITY_DROPS;
 
+const VEHICLE_DAMAGE_MULTIPLIER: f32 = 10.0;
 const VEHICLE_DESTROY_DAMAGE_THRESHOLD: f32 = 40.0;
-const VEHICLE_DIMENSION_CHANGING_DELAY: i32 = 10;
+pub(super) const VEHICLE_HURT_DURATION_TICKS: i32 = 10;
 
 /// Implemented by vehicle entities (minecarts, boats) for vanilla
 /// `VehicleEntity` damage handling.
@@ -54,9 +55,9 @@ pub trait VehicleEntity: Entity {
             return false;
         }
         self.set_hurt_dir(-self.hurt_dir());
-        self.set_hurt_time(10);
+        self.set_hurt_time(VEHICLE_HURT_DURATION_TICKS);
         self.mark_hurt();
-        let new_damage = self.damage() + damage * 10.0;
+        let new_damage = self.damage() + damage * VEHICLE_DAMAGE_MULTIPLIER;
         self.set_damage(new_damage);
 
         let source_entity = source.causing_entity();
@@ -100,8 +101,12 @@ pub trait VehicleEntity: Entity {
 
     /// Returns the default dimension changing delay for vehicles.
     fn vehicle_dimension_changing_delay(&self) -> i32 {
-        VEHICLE_DIMENSION_CHANGING_DELAY
+        10
     }
 
     // TODO: Implement ignoreExplosion.
 }
+
+#[cfg(test)]
+#[path = "tests/vehicle_entity.rs"]
+mod tests;

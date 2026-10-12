@@ -41,6 +41,9 @@ const PLAYER_NUDGE_MAX_SPEED_SQUARED: f64 = 0.01;
 const MINECART_RIDABLE_THRESHOLD: f64 = 0.01;
 const MIN_ROTATION_DISTANCE_SQUARED: f64 = 0.001;
 const ENTITY_INTERACTION_INFLATION: f64 = 0.2_f32 as f64;
+const UNPOWERED_RAIL_STOP_THRESHOLD: f64 = 0.03;
+const POWERED_RAIL_ACCELERATION_THRESHOLD: f64 = 0.01;
+const SLOPE_SPEED_FACTOR: f64 = 0.05;
 
 #[derive(Debug, Default)]
 pub struct OldMinecartBehavior;
@@ -252,7 +255,7 @@ impl MinecartBehavior for OldMinecartBehavior {
         if halt_track {
             let velocity = minecart.velocity();
             let speed_length = velocity.xz().length();
-            let velocity = if speed_length < 0.03 {
+            let velocity = if speed_length < UNPOWERED_RAIL_STOP_THRESHOLD {
                 DVec3::ZERO
             } else {
                 velocity * DVec3::new(0.5, 0.0, 0.5)
@@ -344,11 +347,11 @@ impl MinecartBehavior for OldMinecartBehavior {
             Self::get_pos(world, position.x, position.y, position.z),
             old_projected,
         ) {
-            let vertical_speed = (old_projected.y - new_projected.y) * 0.05;
+            let slope_speed_adjustment = (old_projected.y - new_projected.y) * SLOPE_SPEED_FACTOR;
             let velocity = minecart.velocity();
             let horizontal = velocity.xz().length();
             if horizontal > 0.0 {
-                let factor = (horizontal + vertical_speed) / horizontal;
+                let factor = (horizontal + slope_speed_adjustment) / horizontal;
                 minecart.set_velocity(DVec3::new(
                     velocity.x * factor,
                     velocity.y,
@@ -382,7 +385,7 @@ impl MinecartBehavior for OldMinecartBehavior {
         if power_track {
             let velocity = minecart.velocity();
             let speed_length = velocity.xz().length();
-            if speed_length > 0.01 {
+            if speed_length > POWERED_RAIL_ACCELERATION_THRESHOLD {
                 minecart.set_velocity(
                     velocity
                         + DVec3::new(
@@ -492,3 +495,7 @@ impl OldMinecartBehavior {
         Some(projected)
     }
 }
+
+#[cfg(test)]
+#[path = "tests/old_minecart_behavior.rs"]
+mod tests;
