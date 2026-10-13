@@ -157,7 +157,7 @@ fn rail_projection_handles_all_slopes_at_negative_coordinates() {
         assert!(world.set_block(pos, state, flags));
 
         for input_y in [64.0, 65.0] {
-            let projected = OldMinecartBehavior::get_pos(world, -0.75, input_y, 0.25)
+            let projected = OldMinecartBehavior::get_pos(world, -0.75, input_y, 0.25, None)
                 .expect("the position should project onto the rail");
 
             assert_vec_close(projected, expected);

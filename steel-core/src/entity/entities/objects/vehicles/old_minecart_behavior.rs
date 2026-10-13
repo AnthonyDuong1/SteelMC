@@ -179,7 +179,7 @@ impl MinecartBehavior for OldMinecartBehavior {
         minecart.reset_fall_distance();
 
         let position = minecart.position();
-        let old_projected = Self::get_pos(world, position.x, position.y, position.z);
+        let old_projected = Self::get_pos(world, position.x, position.y, position.z, None);
         let mut y = f64::from(pos.y());
 
         let block = state.get_block();
@@ -204,13 +204,7 @@ impl MinecartBehavior for OldMinecartBehavior {
             RailShape::AscendingSouth => velocity.z -= slide_speed,
             _ => {}
         }
-        if matches!(
-            shape,
-            RailShape::AscendingEast
-                | RailShape::AscendingWest
-                | RailShape::AscendingNorth
-                | RailShape::AscendingSouth
-        ) {
+        if shape.is_slope() {
             y += 1.0;
         }
         minecart.set_velocity(velocity);
@@ -263,26 +257,13 @@ impl MinecartBehavior for OldMinecartBehavior {
             minecart.set_velocity(velocity);
         }
 
-        let (px, pz) = (f64::from(pos.x()), f64::from(pos.z()));
-        let (x0, z0) = (
-            px + 0.5 + f64::from(ex0) * 0.5,
-            pz + 0.5 + f64::from(ez0) * 0.5,
-        );
-        let (x1, z1) = (
-            px + 0.5 + f64::from(ex1) * 0.5,
-            pz + 0.5 + f64::from(ez1) * 0.5,
-        );
-        let (xd, zd) = (x1 - x0, z1 - z0);
-        let (x, z) = (position.x, position.z);
-        let progress = if xd == 0.0 {
-            z - pz
-        } else if zd == 0.0 {
-            x - px
-        } else {
-            ((x - x0) * xd + (z - z0) * zd) * 2.0
-        };
-        if let Err(error) =
-            minecart.try_set_position(DVec3::new(x0 + xd * progress, y, z0 + zd * progress))
+        if let Some(projected) = Self::get_pos(
+            world,
+            position.x,
+            position.y,
+            position.z,
+            Some((pos, shape)),
+        ) && let Err(error) = minecart.try_set_position(DVec3::new(projected.x, y, projected.z))
         {
             log::debug!(
                 "failed to project minecart {} onto rail: {error}",
@@ -312,24 +293,19 @@ impl MinecartBehavior for OldMinecartBehavior {
 
         let position = minecart.position();
         let (floor_x, floor_z) = (position.x.floor() as i32, position.z.floor() as i32);
-        if ey0 != 0 && floor_x - pos.x() == ex0 && floor_z - pos.z() == ez0 {
-            let position = minecart.position();
-            if let Err(error) = minecart.try_set_position(DVec3::new(
-                position.x,
-                position.y + f64::from(ey0),
-                position.z,
-            )) {
-                log::debug!(
-                    "failed to adjust minecart {} to rail exit height: {error}",
-                    minecart.id()
-                );
-                return;
-            }
+        let exit_y = if ey0 != 0 && floor_x - pos.x() == ex0 && floor_z - pos.z() == ez0 {
+            Some(ey0)
         } else if ey1 != 0 && floor_x - pos.x() == ex1 && floor_z - pos.z() == ez1 {
+            Some(ey1)
+        } else {
+            None
+        };
+
+        if let Some(exit_y) = exit_y {
             let position = minecart.position();
             if let Err(error) = minecart.try_set_position(DVec3::new(
                 position.x,
-                position.y + f64::from(ey1),
+                position.y + f64::from(exit_y),
                 position.z,
             )) {
                 log::debug!(
@@ -344,7 +320,7 @@ impl MinecartBehavior for OldMinecartBehavior {
 
         let position = minecart.position();
         if let (Some(new_projected), Some(old_projected)) = (
-            Self::get_pos(world, position.x, position.y, position.z),
+            Self::get_pos(world, position.x, position.y, position.z, None),
             old_projected,
         ) {
             let slope_speed_adjustment = (old_projected.y - new_projected.y) * SLOPE_SPEED_FACTOR;
@@ -449,21 +425,35 @@ impl OldMinecartBehavior {
 
     /// Returns the minecart's position with the correct rail offset, if there is a rail.
     #[must_use]
-    fn get_pos(world: &World, x: f64, y: f64, z: f64) -> Option<DVec3> {
-        let (xt, mut yt, zt) = (x.floor() as i32, y.floor() as i32, z.floor() as i32);
-        if world
-            .get_block_state(BlockPos::new(xt, yt - 1, zt))
-            .get_block()
-            .has_tag(&BlockTag::RAILS)
-        {
-            yt -= 1;
-        }
-        let state = world.get_block_state(BlockPos::new(xt, yt, zt));
-        if !BaseRailBlock::is_rail_state(state) {
-            return None;
-        }
+    fn get_pos(
+        world: &World,
+        x: f64,
+        y: f64,
+        z: f64,
+        rail: Option<(BlockPos, RailShape)>,
+    ) -> Option<DVec3> {
+        let (pos, shape) = if let Some(rail) = rail {
+            rail
+        } else {
+            let (xt, mut yt, zt) = (x.floor() as i32, y.floor() as i32, z.floor() as i32);
+            if world
+                .get_block_state(BlockPos::new(xt, yt - 1, zt))
+                .get_block()
+                .has_tag(&BlockTag::RAILS)
+            {
+                yt -= 1;
+            }
 
-        let shape = state.get_value(RAIL_SHAPE);
+            let pos = BlockPos::new(xt, yt, zt);
+            let state = world.get_block_state(pos);
+            if !BaseRailBlock::is_rail_state(state) {
+                return None;
+            }
+
+            (pos, state.get_value(RAIL_SHAPE))
+        };
+
+        let (xt, yt, zt) = (pos.x(), pos.y(), pos.z());
         let ((ex0, ey0, ez0), (ex1, ey1, ez1)) = rail_exits(shape);
         let (x0, y0, z0) = (
             f64::from(xt) + 0.5 + f64::from(ex0) * 0.5,

@@ -381,67 +381,35 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
 
         let movement = self.velocity();
         let other_movement = other_minecart.velocity();
+        let normal_scale = DVec3::new(
+            COLLISION_VELOCITY_RETENTION,
+            1.0,
+            COLLISION_VELOCITY_RETENTION,
+        );
+        let furnace_scale = DVec3::new(
+            FURNACE_COLLISION_VELOCITY_RETENTION,
+            1.0,
+            FURNACE_COLLISION_VELOCITY_RETENTION,
+        );
 
         if other_minecart.is_furnace() && !self.is_furnace() {
-            self.set_velocity(
-                movement
-                    * DVec3::new(
-                        COLLISION_VELOCITY_RETENTION,
-                        1.0,
-                        COLLISION_VELOCITY_RETENTION,
-                    ),
-            );
+            self.set_velocity(movement * normal_scale);
             self.push_impulse(DVec3::new(
                 other_movement.x - xa,
                 0.0,
                 other_movement.z - za,
             ));
-            other_minecart.set_velocity(
-                other_movement
-                    * DVec3::new(
-                        FURNACE_COLLISION_VELOCITY_RETENTION,
-                        1.0,
-                        FURNACE_COLLISION_VELOCITY_RETENTION,
-                    ),
-            );
+            other_minecart.set_velocity(other_movement * furnace_scale);
         } else if !other_minecart.is_furnace() && self.is_furnace() {
-            other_minecart.set_velocity(
-                other_movement
-                    * DVec3::new(
-                        COLLISION_VELOCITY_RETENTION,
-                        1.0,
-                        COLLISION_VELOCITY_RETENTION,
-                    ),
-            );
+            other_minecart.set_velocity(other_movement * normal_scale);
             other_minecart.push_impulse(DVec3::new(movement.x + xa, 0.0, movement.z + za));
-            self.set_velocity(
-                movement
-                    * DVec3::new(
-                        FURNACE_COLLISION_VELOCITY_RETENTION,
-                        1.0,
-                        FURNACE_COLLISION_VELOCITY_RETENTION,
-                    ),
-            );
+            self.set_velocity(movement * furnace_scale);
         } else {
             let xdd = (other_movement.x + movement.x) / 2.0;
             let zdd = (other_movement.z + movement.z) / 2.0;
-            self.set_velocity(
-                movement
-                    * DVec3::new(
-                        COLLISION_VELOCITY_RETENTION,
-                        1.0,
-                        COLLISION_VELOCITY_RETENTION,
-                    ),
-            );
+            self.set_velocity(movement * normal_scale);
             self.push_impulse(DVec3::new(xdd - xa, 0.0, zdd - za));
-            other_minecart.set_velocity(
-                other_movement
-                    * DVec3::new(
-                        COLLISION_VELOCITY_RETENTION,
-                        1.0,
-                        COLLISION_VELOCITY_RETENTION,
-                    ),
-            );
+            other_minecart.set_velocity(other_movement * normal_scale);
             other_minecart.push_impulse(DVec3::new(xdd + xa, 0.0, zdd + za));
         }
     }
