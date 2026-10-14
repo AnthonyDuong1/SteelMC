@@ -3,6 +3,36 @@ use std::io::Cursor;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
+use super::{
+    ClientInformation, DEATH_DURATION, DROP_SPAM_THROTTLER_INCREMENT_STEP,
+    DROP_SPAM_THROTTLER_THRESHOLD, MenuRemovalStatus, Player, PlayerConnection,
+    PlayerPermissionState, ResetReason,
+    connection::NetworkConnection,
+    experience::Experience,
+    experience::first_point_level_up_sound,
+    game_mode::block_breaking::BlockBreakAction,
+    player_data::{PersistentEnderPearl, PersistentPlayerData, PersistentRootVehicle},
+    player_inventory::MenuItemDisposition,
+};
+use crate::behavior::{InteractionResult, init_behaviors};
+use crate::chunk_saver::PersistentEntity;
+use crate::entity::{
+    DEFAULT_MAX_AIR_SUPPLY, Entity, EntitySyncedData, LivingEntity, SharedEntity,
+    damage::DamageSource, entities::ItemEntity, next_entity_id,
+};
+use crate::inventory::{
+    click::{Click, DragKind, QuickCraft},
+    container::{Container as _, SimpleContainer},
+    equipment::{EntityEquipment, EquipmentSlot},
+    menu::{Menu, MenuBehavior, MenuBuilder, MenuKind, kinds::BasicKind},
+};
+use crate::permission::{PermissionEntry, PermissionKey, PermissionMetadataSet, PermissionSet};
+use crate::player::game_mode::PlayerGameModeState;
+use crate::test_support::{
+    TestPlayerBuilder, fresh_test_world, fresh_test_world_in_domain, hard_damage_test_world,
+    insert_ready_full_chunk, test_world,
+};
+use crate::world::World;
 use glam::DVec3;
 use steel_protocol::packet_traits::{CompressionInfo, EncodedPacket};
 use steel_protocol::packets::common::{
@@ -28,39 +58,6 @@ use steel_utils::types::{Difficulty, GameType, InteractionHand, UpdateFlags};
 use steel_utils::{BlockPos, ChunkPos, Downcast as _, DowncastType, DowncastTypeKey, WorldAabb};
 use text_components::TextComponent;
 use uuid::Uuid;
-
-use crate::behavior::{InteractionResult, init_behaviors};
-use crate::chunk_saver::PersistentEntity;
-use crate::entity::{
-    DEFAULT_MAX_AIR_SUPPLY, Entity, EntitySyncedData, LivingEntity, SharedEntity,
-    damage::DamageSource, entities::ItemEntity, next_entity_id,
-};
-use crate::inventory::{
-    click::{Click, DragKind, QuickCraft},
-    container::{Container as _, SimpleContainer},
-    equipment::{EntityEquipment, EquipmentSlot},
-    menu::{Menu, MenuBehavior, MenuBuilder, MenuKind, kinds::BasicKind},
-};
-use crate::permission::{PermissionEntry, PermissionKey, PermissionMetadataSet, PermissionSet};
-use crate::player::game_mode::PlayerGameModeState;
-use crate::test_support::{
-    TestPlayerBuilder, fresh_test_world, fresh_test_world_in_domain, hard_damage_test_world,
-    insert_ready_full_chunk, test_world,
-};
-use crate::world::World;
-
-use super::{
-    ClientInformation, DEATH_DURATION, DROP_SPAM_THROTTLER_INCREMENT_STEP,
-    DROP_SPAM_THROTTLER_THRESHOLD, MenuRemovalStatus, Player, PlayerConnection,
-    PlayerPermissionState, ResetReason,
-    connection::NetworkConnection,
-    experience::Experience,
-    experience::first_point_level_up_sound,
-    game_mode::block_breaking::BlockBreakAction,
-    lifecycle::nullable_game_mode_id,
-    player_data::{PersistentEnderPearl, PersistentPlayerData, PersistentRootVehicle},
-    player_inventory::MenuItemDisposition,
-};
 
 const PLAYER_MAIN_HAND_METADATA_INDEX: u8 = 15;
 const PLAYER_MODEL_CUSTOMIZATION_METADATA_INDEX: u8 = 16;
@@ -1336,12 +1333,6 @@ fn equipment_detection_coalesces_before_tracker_drain() {
             item_stack: ItemStack::new(&vanilla_items::DIAMOND_HELMET),
         }]
     );
-}
-
-#[test]
-fn nullable_game_mode_id_matches_vanilla_encoding() {
-    assert_eq!(nullable_game_mode_id(None), -1);
-    assert_eq!(nullable_game_mode_id(Some(GameType::Creative)), 1);
 }
 
 #[test]

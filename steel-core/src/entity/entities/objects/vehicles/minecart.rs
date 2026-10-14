@@ -218,8 +218,11 @@ impl Entity for MinecartEntity {
             return InteractionResult::Pass;
         };
 
-        let _ = player.start_riding(&minecart);
-        InteractionResult::Pass
+        if player.start_riding(&minecart) {
+            InteractionResult::SuccessServer
+        } else {
+            InteractionResult::Consume
+        }
     }
 
     fn base(&self) -> &EntityBase {
