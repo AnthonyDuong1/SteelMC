@@ -3,7 +3,6 @@ use steel_macros::item_behavior;
 use steel_registry::blocks::block_state_ext::BlockStateExt as _;
 use steel_registry::blocks::properties::{BlockStateProperties, RailShape};
 use steel_registry::entity_type::EntityTypeRef;
-use steel_registry::stat::vanilla_stat_types;
 use steel_registry::vanilla_block_tags::BlockTag;
 use steel_registry::vanilla_game_events;
 
@@ -84,15 +83,7 @@ impl ItemBehavior for MinecartItem {
             ),
         );
 
-        let used_item = context.inv.with_item(|stack| {
-            let item = stack.item();
-            stack.shrink_one();
-            item
-        });
-
-        context
-            .player
-            .award_stat(&vanilla_stat_types::ITEM_USED, used_item);
+        context.inv.with_item(|stack| stack.shrink_one());
 
         InteractionResult::Success
     }
