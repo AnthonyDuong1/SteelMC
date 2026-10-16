@@ -3,6 +3,7 @@ use steel_macros::item_behavior;
 use steel_registry::blocks::block_state_ext::BlockStateExt as _;
 use steel_registry::blocks::properties::{BlockStateProperties, RailShape};
 use steel_registry::entity_type::EntityTypeRef;
+use steel_registry::item_stack::ItemStack;
 use steel_registry::vanilla_block_tags::BlockTag;
 use steel_registry::vanilla_game_events;
 
@@ -83,7 +84,7 @@ impl ItemBehavior for MinecartItem {
             ),
         );
 
-        context.inv.with_item(|stack| stack.shrink_one());
+        context.inv.with_item(ItemStack::shrink_one);
 
         InteractionResult::Success
     }
