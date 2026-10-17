@@ -521,7 +521,7 @@ impl Player {
             {
                 log::warn!(
                     "{} was expected to be controlling vehicle {} but was not. Resetting vehicle position.",
-                    self.gameprofile.name,
+                    self.gameprofile.name(),
                     vehicle.id()
                 );
 
@@ -553,7 +553,7 @@ impl Player {
             log::warn!(
                 "{} (vehicle of {}) moved too quickly! {},{},{}",
                 vehicle.id(),
-                self.gameprofile.name,
+                self.gameprofile.name(),
                 first_good_delta.x,
                 first_good_delta.y,
                 first_good_delta.z
@@ -584,7 +584,7 @@ impl Player {
             log::warn!(
                 "{} (vehicle of {}) moved wrongly! {}",
                 vehicle.id(),
-                self.gameprofile.name,
+                self.gameprofile.name(),
                 error_dist_sq.sqrt()
             );
         }
@@ -764,7 +764,7 @@ impl Player {
         if should_disconnect {
             log::warn!(
                 "{} was kicked for floating too long!",
-                self.gameprofile.name
+                self.gameprofile.name()
             );
             self.disconnect(translations::MULTIPLAYER_DISCONNECT_FLYING.msg());
         }
@@ -795,7 +795,7 @@ impl Player {
         if should_disconnect {
             log::warn!(
                 "{} was kicked for floating a vehicle too long!",
-                self.gameprofile.name
+                self.gameprofile.name()
             );
             self.disconnect(translations::MULTIPLAYER_DISCONNECT_FLYING.msg());
         }
@@ -975,7 +975,7 @@ impl Player {
         if packet.entity_id != self.id() {
             log::warn!(
                 "Player {} (eid {}) sent SPlayerCommand with mismatched entity_id {}",
-                self.gameprofile.name,
+                self.gameprofile.name(),
                 self.id(),
                 packet.entity_id
             );
