@@ -20,7 +20,6 @@ use super::abstract_minecart::{
     AbstractMinecart, AbstractMinecartBase, AbstractMinecartEventSource,
 };
 use super::minecart_behavior::MinecartBehavior;
-use super::old_minecart_behavior::OldMinecartBehavior;
 use super::vehicle_entity::{VEHICLE_HURT_DURATION_TICKS, VehicleEntity};
 use crate::behavior::InteractionResult;
 use crate::entity::{
@@ -40,7 +39,6 @@ pub struct MinecartEntity {
     entity_type: EntityTypeRef,
     entity_data: SyncMutex<MinecartEntityData>,
     minecart_base: AbstractMinecartBase,
-    behavior: OldMinecartBehavior, // TODO(minecart-improvements): choose New/Old per world flag
 }
 
 // SAFETY: This key is owned by Steel and uniquely identifies `MinecartEntity`.
@@ -57,7 +55,6 @@ impl MinecartEntity {
             entity_type,
             entity_data: SyncMutex::new(MinecartEntityData::new()),
             minecart_base: AbstractMinecartBase::new(),
-            behavior: OldMinecartBehavior,
         }
     }
 
@@ -69,7 +66,6 @@ impl MinecartEntity {
             entity_type,
             entity_data: SyncMutex::new(MinecartEntityData::new()),
             minecart_base: AbstractMinecartBase::new(),
-            behavior: OldMinecartBehavior,
         }
     }
 }
@@ -140,10 +136,6 @@ impl VehicleEntity for MinecartEntity {
 impl AbstractMinecart for MinecartEntity {
     fn minecart_base(&self) -> &AbstractMinecartBase {
         &self.minecart_base
-    }
-
-    fn minecart_behavior(&self) -> &dyn MinecartBehavior {
-        &self.behavior
     }
 
     fn is_rideable(&self) -> bool {
@@ -257,13 +249,11 @@ impl Entity for MinecartEntity {
     }
 
     fn known_movement(&self) -> DVec3 {
-        self.minecart_behavior()
-            .known_movement(self.default_known_movement())
+        MinecartBehavior::known_movement(self.default_known_movement())
     }
 
     fn motion_direction(&self) -> Direction {
-        self.minecart_behavior()
-            .motion_direction(self.as_abstract_minecart_event_source())
+        MinecartBehavior::motion_direction(self.as_abstract_minecart_event_source())
     }
 
     fn is_on_rails(&self) -> bool {

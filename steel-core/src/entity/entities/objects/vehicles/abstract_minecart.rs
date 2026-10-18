@@ -103,9 +103,6 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
     /// Returns the minecart's shared non-synchronized minecart state.
     fn minecart_base(&self) -> &AbstractMinecartBase;
 
-    /// Returns the movement behavior used by this minecart.
-    fn minecart_behavior(&self) -> &dyn MinecartBehavior;
-
     /// Returns the custom display block, if any.
     fn custom_display_block(&self) -> Option<BlockStateId>;
 
@@ -119,8 +116,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
 
     /// Returns the minecart's max speed.
     fn max_speed(&self, world: &World) -> f64 {
-        self.minecart_behavior()
-            .max_speed(self.as_abstract_minecart_event_source(), world)
+        MinecartBehavior::max_speed(self.as_abstract_minecart_event_source(), world)
     }
 
     /// Returns the default gravity of this minecart.
@@ -202,7 +198,6 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
     /// Returns the block below when it contains rails, otherwise the minecart's current block position.
     fn current_block_pos_or_rail_below(&self, world: &World) -> BlockPos {
         let pos = self.position();
-        // TODO: add experimental movement Y-offset branch here.
         let (xt, yt, zt) = (
             pos.x.floor() as i32,
             pos.y.floor() as i32,
@@ -236,7 +231,6 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
 
     /// Applies block-contact effects at the current position and clears movement.
     fn minecart_apply_effects_from_blocks(&self) {
-        // TODO: experimental uses default apply_effects_from_blocks.
         let position = self.position();
         self.apply_effects_from_blocks_between(position, position);
         self.base().clear_movement_this_tick();
@@ -248,8 +242,6 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
         mover_type: MoverType,
         delta: DVec3,
     ) -> Option<MoveResult> {
-        // TODO: Experimental movement pushes and picks up entities after moving,
-        // and if moved by a piston, sets on_rails state to false.
         let result = Arc::clone(&self).default_move_entity(mover_type, delta);
         self.minecart_apply_effects_from_blocks();
         result
@@ -271,8 +263,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
         self.check_below_world();
         self.base().compute_known_speed();
         self.handle_portal();
-        self.minecart_behavior()
-            .tick(self.as_abstract_minecart_event_source(), entity, &world);
+        MinecartBehavior::tick(self.as_abstract_minecart_event_source(), entity, &world);
         self.refresh_fluid_contact_for_base_tick();
         self.base().reset_fall_distance_in_water();
 
@@ -287,9 +278,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
 
     /// Applies natural slowdown to the minecart movement.
     fn apply_natural_slowdown(&self, movement: DVec3) -> DVec3 {
-        let slowdown = self
-            .minecart_behavior()
-            .slowdown_factor(self.as_abstract_minecart_event_source());
+        let slowdown = MinecartBehavior::slowdown_factor(self.as_abstract_minecart_event_source());
         let mut result = movement * DVec3::new(slowdown, 0.0, slowdown);
         if self.is_in_water() {
             result *= f64::from(WATER_SLOWDOWN_FACTOR);
@@ -365,7 +354,6 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
     /// Updates both cart's horizontal velocities after an aligned collision, handling
     /// special cases for furnace minecarts.
     fn push_other_minecart(&self, other_minecart: &dyn AbstractMinecart, xa: f64, za: f64) {
-        // TODO: Add experimental movement check
         let xo = other_minecart.position().x - self.position().x;
         let zo = other_minecart.position().z - self.position().z;
 
@@ -468,7 +456,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
     }
 }
 
-/// Returns the the block-relative exit offsets connected by the rail shape.
+/// Returns the block-relative exit offsets connected by the rail shape.
 #[must_use]
 pub const fn rail_exits(shape: RailShape) -> ((i32, i32, i32), (i32, i32, i32)) {
     let (x_neg, x_pos, z_neg, z_pos) = ((-1, 0, 0), (1, 0, 0), (0, 0, -1), (0, 0, 1));
@@ -530,9 +518,6 @@ pub(crate) fn create_minecart(
         );
         return None;
     }
-
-    // TODO: Adjust the configured cart to rails when experimental
-    // minecart movement is implemented.
 
     Some(cart)
 }

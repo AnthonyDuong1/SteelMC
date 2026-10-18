@@ -75,17 +75,15 @@ fn run_flat_track_case(
     cart.set_old_position_to_current();
     cart.set_velocity(DVec3::new(initial_vx, 0.0, 0.0));
 
-    OldMinecartBehavior.move_along_track(cart.as_ref(), &entity, world);
+    MinecartBehavior::move_along_track(cart.as_ref(), &entity, world);
 
     (cart.position() - start, cart.velocity())
 }
 
 #[test]
 fn known_movement_handles_nan_and_infinity_like_vanilla() {
-    let behavior = OldMinecartBehavior;
-
     assert_eq!(
-        behavior.known_movement(DVec3::new(5.0, -0.75, -7.0)),
+        MinecartBehavior::known_movement(DVec3::new(5.0, -0.75, -7.0)),
         DVec3::new(0.4, -0.75, -0.4),
     );
 
@@ -94,11 +92,15 @@ fn known_movement_handles_nan_and_infinity_like_vanilla() {
         DVec3::new(0.1, f64::NAN, 0.3),
         DVec3::new(0.1, 0.2, f64::NAN),
     ] {
-        assert_eq!(behavior.known_movement(movement), DVec3::ZERO);
+        assert_eq!(MinecartBehavior::known_movement(movement), DVec3::ZERO);
     }
 
     assert_eq!(
-        behavior.known_movement(DVec3::new(f64::INFINITY, f64::INFINITY, f64::NEG_INFINITY,)),
+        MinecartBehavior::known_movement(DVec3::new(
+            f64::INFINITY,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+        )),
         DVec3::new(0.4, f64::INFINITY, -0.4),
     );
 }
@@ -157,7 +159,7 @@ fn rail_projection_handles_all_slopes_at_negative_coordinates() {
         assert!(world.set_block(pos, state, flags));
 
         for input_y in [64.0, 65.0] {
-            let projected = OldMinecartBehavior::get_pos(world, -0.75, input_y, 0.25, None)
+            let projected = MinecartBehavior::get_pos(world, -0.75, input_y, 0.25, None)
                 .expect("the position should project onto the rail");
 
             assert_vec_close(projected, expected);
@@ -181,7 +183,7 @@ fn rotation_flip_boundaries_are_asymmetric() {
         cart.set_rotation((initial_yaw, 35.0));
         cart.minecart_base().set_flipped(false);
 
-        OldMinecartBehavior::update_rotation_from_movement(&cart);
+        MinecartBehavior::update_rotation_from_movement(&cart);
 
         assert_eq!(
             cart.is_flipped(),

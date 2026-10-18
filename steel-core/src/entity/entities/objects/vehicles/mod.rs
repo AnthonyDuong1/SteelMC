@@ -4,7 +4,6 @@ mod abstract_minecart;
 mod chest_minecart;
 mod minecart;
 mod minecart_behavior;
-mod old_minecart_behavior;
 mod vehicle_entity;
 
 pub(crate) use abstract_minecart::create_minecart;
