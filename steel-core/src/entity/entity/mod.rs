@@ -3287,6 +3287,10 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
     /// Moves the entity with collision detection.
     ///
     /// Updates position, `on_ground`, velocity (on collision), and returns collision info.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "keeps vanilla movement phases in order"
+    )]
     fn default_move_entity(
         self: Arc<Self>,
         mover_type: MoverType,
