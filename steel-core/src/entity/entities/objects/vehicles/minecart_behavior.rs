@@ -28,6 +28,7 @@ const WATER_SLIDE_SPEED: f64 = SLIDE_SPEED * 0.2;
 const MAX_SPEED_IN_WATER: f64 = 0.2;
 const MAX_SPEED_ON_LAND: f64 = 0.4;
 const ABSOLUTE_MAX_SPEED: f64 = 0.4;
+const MAX_RAIL_ALIGNMENT_VELOCITY: f64 = 2.0;
 const POWERED_RAIL_ACCEL: f64 = 0.06;
 const POWERED_RAIL_KICKSTART: f64 = 0.02;
 const RIDDEN_SLOWDOWN_FACTOR: f64 = 0.997;
@@ -39,8 +40,13 @@ const MINECART_RIDABLE_THRESHOLD: f64 = 0.01;
 const MIN_ROTATION_DISTANCE_SQUARED: f64 = 0.001;
 const ENTITY_INTERACTION_INFLATION: f64 = 0.2_f32 as f64;
 const UNPOWERED_RAIL_STOP_THRESHOLD: f64 = 0.03;
+const UNPOWERED_RAIL_SLOWDOWN_FACTOR: f64 = 0.5;
 const POWERED_RAIL_ACCELERATION_THRESHOLD: f64 = 0.01;
 const SLOPE_SPEED_FACTOR: f64 = 0.05;
+const ROTATION_FLIP_THRESHOLD_DEGREES: f32 = 170.0;
+const RAIL_EXIT_OFFSET_SCALE: f64 = 0.5;
+const CORNER_RAIL_PROJECTION_SCALE: f64 = 2.0;
+const SLOPE_HEIGHT_SCALE: f64 = 2.0;
 
 /// Shared minecart movement behavior.
 #[derive(Debug, Default)]
@@ -164,7 +170,7 @@ impl MinecartBehavior {
             xd = -xd;
             zd = -zd;
         }
-        let pow = velocity.xz().length().min(2.0);
+        let pow = velocity.xz().length().min(MAX_RAIL_ALIGNMENT_VELOCITY);
         minecart.set_velocity(DVec3::new(pow * xd / length, velocity.y, pow * zd / length));
 
         if let Some(passenger) = minecart.first_passenger()
@@ -199,7 +205,12 @@ impl MinecartBehavior {
             let velocity = if speed_length < UNPOWERED_RAIL_STOP_THRESHOLD {
                 DVec3::ZERO
             } else {
-                velocity * DVec3::new(0.5, 0.0, 0.5)
+                velocity
+                    * DVec3::new(
+                        UNPOWERED_RAIL_SLOWDOWN_FACTOR,
+                        0.0,
+                        UNPOWERED_RAIL_SLOWDOWN_FACTOR,
+                    )
             };
             minecart.set_velocity(velocity);
         }
@@ -411,7 +422,9 @@ impl MinecartBehavior {
         }
 
         let rot_diff = wrap_degrees(minecart.rotation().0 - minecart.base().old_rotation().0);
-        if rot_diff < -170.0 || rot_diff >= 170.0 {
+        if rot_diff < -ROTATION_FLIP_THRESHOLD_DEGREES
+            || rot_diff >= ROTATION_FLIP_THRESHOLD_DEGREES
+        {
             minecart.minecart_base().toggle_flipped();
             minecart.set_rotation((minecart.rotation().0 + DEGREE_180, minecart.rotation().1));
         }
@@ -454,24 +467,24 @@ impl MinecartBehavior {
         let (xt, yt, zt) = (pos.x(), pos.y(), pos.z());
         let ((ex0, ey0, ez0), (ex1, ey1, ez1)) = rail_exits(shape);
         let (x0, y0, z0) = (
-            f64::from(xt) + 0.5 + f64::from(ex0) * 0.5,
-            f64::from(yt) + RAIL_HEIGHT_OFFSET + f64::from(ey0) * 0.5,
-            f64::from(zt) + 0.5 + f64::from(ez0) * 0.5,
+            f64::from(xt) + 0.5 + f64::from(ex0) * RAIL_EXIT_OFFSET_SCALE,
+            f64::from(yt) + RAIL_HEIGHT_OFFSET + f64::from(ey0) * RAIL_EXIT_OFFSET_SCALE,
+            f64::from(zt) + 0.5 + f64::from(ez0) * RAIL_EXIT_OFFSET_SCALE,
         );
         let (x1, y1, z1) = (
-            f64::from(xt) + 0.5 + f64::from(ex1) * 0.5,
-            f64::from(yt) + RAIL_HEIGHT_OFFSET + f64::from(ey1) * 0.5,
-            f64::from(zt) + 0.5 + f64::from(ez1) * 0.5,
+            f64::from(xt) + 0.5 + f64::from(ex1) * RAIL_EXIT_OFFSET_SCALE,
+            f64::from(yt) + RAIL_HEIGHT_OFFSET + f64::from(ey1) * RAIL_EXIT_OFFSET_SCALE,
+            f64::from(zt) + 0.5 + f64::from(ez1) * RAIL_EXIT_OFFSET_SCALE,
         );
         let (dx, dz) = (x1 - x0, z1 - z0);
-        let dy = (y1 - y0) * 2.0;
+        let dy = (y1 - y0) * SLOPE_HEIGHT_SCALE;
 
         let progress = if dx == 0.0 {
             z - f64::from(zt)
         } else if dz == 0.0 {
             x - f64::from(xt)
         } else {
-            ((x - x0) * dx + (z - z0) * dz) * 2.0
+            ((x - x0) * dx + (z - z0) * dz) * CORNER_RAIL_PROJECTION_SCALE
         };
 
         let mut projected = DVec3::new(x0 + dx * progress, y0 + dy * progress, z0 + dz * progress);

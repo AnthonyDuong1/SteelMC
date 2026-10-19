@@ -30,6 +30,7 @@ use crate::world::{SignalGetter as _, World};
 const LOWERED_PASSENGER_ATTACHMENT: DVec3 = DVec3::ZERO;
 const AIR_DRAG: f32 = 0.95;
 const WATER_SLOWDOWN_FACTOR: f32 = 0.95;
+const LAVA_FALL_DISTANCE_FACTOR: f64 = 0.5;
 const MIN_PUSH_DISTANCE_SQUARED: f32 = 1.0e-4;
 const MIN_COLLISION_ALIGNMENT: f32 = 0.8;
 const GRAVITY_IN_WATER: f64 = 0.005;
@@ -37,7 +38,9 @@ const DEFAULT_GRAVITY: f64 = 0.04;
 const OFF_TRACK_GROUND_SLOWDOWN_FACTOR: f64 = 0.5;
 const PUSH_FORCE: f32 = 0.1;
 const COLLISION_VELOCITY_RETENTION: f64 = 0.2;
+const COLLISION_PUSH_SCALE: f64 = 0.5;
 const FURNACE_COLLISION_VELOCITY_RETENTION: f64 = 0.95;
+const NON_MINECART_PUSH_DIVISOR: f64 = 4.0;
 
 /// The two vanilla `AbstractMinecart` fields with no `SynchedEntityData`
 /// backing (`onRails`, `flipped`).
@@ -270,7 +273,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
         if self.is_in_lava() {
             self.lava_ignite();
             self.lava_hurt();
-            self.set_fall_distance(self.fall_distance() * 0.5);
+            self.set_fall_distance(self.fall_distance() * LAVA_FALL_DISTANCE_FACTOR);
         }
 
         self.set_first_tick(false);
@@ -336,14 +339,18 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
         za *= pow;
         xa *= f64::from(PUSH_FORCE);
         za *= f64::from(PUSH_FORCE);
-        xa *= 0.5;
-        za *= 0.5;
+        xa *= COLLISION_PUSH_SCALE;
+        za *= COLLISION_PUSH_SCALE;
 
         if let Some(other_minecart) = other.as_abstract_minecart() {
             self.push_other_minecart(other_minecart, xa, za);
         } else {
             self.push_impulse(DVec3::new(-xa, 0.0, -za));
-            other.push_impulse(DVec3::new(xa / 4.0, 0.0, za / 4.0));
+            other.push_impulse(DVec3::new(
+                xa / NON_MINECART_PUSH_DIVISOR,
+                0.0,
+                za / NON_MINECART_PUSH_DIVISOR,
+            ));
         }
     }
 
