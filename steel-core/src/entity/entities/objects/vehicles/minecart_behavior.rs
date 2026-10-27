@@ -114,7 +114,7 @@ impl MinecartBehavior {
 
     /// Returns the slowdown factor of this minecart.
     pub(crate) fn slowdown_factor(minecart: &dyn AbstractMinecart) -> f64 {
-        if minecart.base().is_vehicle() {
+        if minecart.is_vehicle() {
             RIDDEN_SLOWDOWN_FACTOR
         } else {
             EMPTY_SLOWDOWN_FACTOR
@@ -230,7 +230,7 @@ impl MinecartBehavior {
             return;
         }
 
-        let scale = if minecart.base().is_vehicle() {
+        let scale = if minecart.is_vehicle() {
             OCCUPIED_MOVEMENT_SCALE
         } else {
             1.0

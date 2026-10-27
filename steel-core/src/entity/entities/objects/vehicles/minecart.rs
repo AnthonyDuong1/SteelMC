@@ -16,9 +16,7 @@ use steel_utils::locks::SyncMutex;
 use steel_utils::types::InteractionHand;
 use steel_utils::{BlockPos, BlockStateId, Direction, DowncastType, DowncastTypeKey};
 
-use super::abstract_minecart::{
-    AbstractMinecart, AbstractMinecartBase, AbstractMinecartEventSource,
-};
+use super::abstract_minecart::{AbstractMinecart, AbstractMinecartBase};
 use super::minecart_behavior::MinecartBehavior;
 use super::vehicle_entity::{VEHICLE_HURT_DURATION_TICKS, VehicleEntity};
 use crate::behavior::InteractionResult;
@@ -72,57 +70,36 @@ impl MinecartEntity {
 
 impl VehicleEntity for MinecartEntity {
     fn hurt_time(&self) -> i32 {
-        *self
-            .entity_data
-            .lock()
-            .abstract_minecart()
-            .vehicle_entity()
-            .id_hurt
-            .get()
+        *self.entity_data.lock().vehicle_entity().id_hurt.get()
     }
 
     fn set_hurt_time(&self, value: i32) {
         self.entity_data
             .lock()
-            .abstract_minecart_mut()
             .vehicle_entity_mut()
             .id_hurt
             .set(value);
     }
 
     fn hurt_dir(&self) -> i32 {
-        *self
-            .entity_data
-            .lock()
-            .abstract_minecart()
-            .vehicle_entity()
-            .id_hurtdir
-            .get()
+        *self.entity_data.lock().vehicle_entity().id_hurtdir.get()
     }
 
     fn set_hurt_dir(&self, value: i32) {
         self.entity_data
             .lock()
-            .abstract_minecart_mut()
             .vehicle_entity_mut()
             .id_hurtdir
             .set(value);
     }
 
     fn damage(&self) -> f32 {
-        *self
-            .entity_data
-            .lock()
-            .abstract_minecart()
-            .vehicle_entity()
-            .id_damage
-            .get()
+        *self.entity_data.lock().vehicle_entity().id_damage.get()
     }
 
     fn set_damage(&self, value: f32) {
         self.entity_data
             .lock()
-            .abstract_minecart_mut()
             .vehicle_entity_mut()
             .id_damage
             .set(value);
@@ -253,7 +230,7 @@ impl Entity for MinecartEntity {
     }
 
     fn motion_direction(&self) -> Direction {
-        MinecartBehavior::motion_direction(self.as_abstract_minecart_event_source())
+        MinecartBehavior::motion_direction(self)
     }
 
     fn is_on_rails(&self) -> bool {
