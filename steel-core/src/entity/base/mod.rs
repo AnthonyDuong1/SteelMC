@@ -1271,6 +1271,16 @@ impl EntityBase {
         self.state.lock().rotation = normalize_rotation(rotation);
     }
 
+    /// Sets the entity's yaw.
+    pub fn set_y_rot(&self, yaw: f32) {
+        if !yaw.is_finite() {
+            log::error!("Invalid entity rotation: {yaw}, discarding.");
+            return;
+        }
+
+        self.state.lock().rotation.0 = yaw;
+    }
+
     /// Sets whether this entity bypasses collision physics.
     pub fn set_no_physics(&self, no_physics: bool) {
         self.state.lock().no_physics = no_physics;

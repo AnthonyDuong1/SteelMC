@@ -16,11 +16,11 @@ use steel_utils::locks::SyncMutex;
 use steel_utils::types::InteractionHand;
 use steel_utils::{BlockPos, BlockStateId, Direction, DowncastType, DowncastTypeKey};
 
+use super::super::vehicle_entity::{VEHICLE_HURT_DURATION_TICKS, VehicleEntity};
 use super::abstract_minecart::{
     AbstractMinecart, AbstractMinecartBase, AbstractMinecartEventSource,
 };
 use super::minecart_behavior::MinecartBehavior;
-use super::vehicle_entity::{VEHICLE_HURT_DURATION_TICKS, VehicleEntity};
 use crate::behavior::InteractionResult;
 use crate::entity::{
     DamageSource, Entity, EntityBase, EntityBaseLoad, EntityEventSource, EntityMovementEmission,

@@ -16,8 +16,8 @@ use steel_utils::block_util::FoundRectangle;
 use steel_utils::locks::SyncMutex;
 use steel_utils::{BlockPos, BlockStateId};
 
+use super::super::vehicle_entity::VehicleEntity;
 use super::minecart_behavior::MinecartBehavior;
-use super::vehicle_entity::VehicleEntity;
 use crate::block_entity::block_state_nbt;
 use crate::entity::reset_forward_direction_of_relative_portal_position;
 use crate::entity::{Entity, EntityMovementEmission};

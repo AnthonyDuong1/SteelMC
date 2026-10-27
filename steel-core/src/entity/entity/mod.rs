@@ -1,7 +1,10 @@
 use std::collections::BTreeSet;
 
 use super::*;
-use crate::entity::{entities::objects::vehicles::AbstractMinecart, leash::Leashable};
+use crate::entity::{
+    entities::objects::vehicles::{AbstractBoat, AbstractMinecart},
+    leash::Leashable,
+};
 use steel_math::DEGREE_90;
 
 /// Vanilla `Entity.refreshDimensions` small-entity limit: only entities at most
@@ -394,6 +397,15 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
             .is_some_and(|living| !living.is_removed())
     }
 
+    /// Extra radius used when selecting an entity.
+    fn get_pick_radius(&self) -> f32 {
+        if self.as_projectile().is_some() && self.is_pickable() {
+            1.0
+        } else {
+            0.0
+        }
+    }
+
     /// Returns whether this entity can be attacked.
     ///
     /// Concrete entities that override vanilla to reject player attacks
@@ -463,20 +475,24 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
         self.default_on_inside_bubble_column(drag_down);
     }
 
-    /// Applies the base entity's clamped movement inside a bubble-column.
+    /// Applies the base entity's clamped movement inside a bubble column.
     fn default_on_inside_bubble_column(&self, drag_down: bool) {
         if self.is_flying_player() {
             return;
         }
 
-        let velocity = self.velocity();
-        let y = if drag_down {
-            (velocity.y - BUBBLE_COLUMN_DOWN_ACCELERATION).max(BUBBLE_COLUMN_INSIDE_DOWN_MIN_SPEED)
-        } else {
-            (velocity.y + BUBBLE_COLUMN_INSIDE_UP_ACCELERATION)
-                .min(BUBBLE_COLUMN_INSIDE_UP_MAX_SPEED)
-        };
-        self.set_velocity(DVec3::new(velocity.x, y, velocity.z));
+        if self.can_simulate_movement() {
+            let velocity = self.velocity();
+            let y = if drag_down {
+                (velocity.y - BUBBLE_COLUMN_DOWN_ACCELERATION)
+                    .max(BUBBLE_COLUMN_INSIDE_DOWN_MIN_SPEED)
+            } else {
+                (velocity.y + BUBBLE_COLUMN_INSIDE_UP_ACCELERATION)
+                    .min(BUBBLE_COLUMN_INSIDE_UP_MAX_SPEED)
+            };
+            self.set_velocity(DVec3::new(velocity.x, y, velocity.z));
+        }
+
         self.reset_fall_distance();
     }
 
@@ -825,8 +841,8 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
         self.mark_velocity_sync();
     }
 
-    /// Applies vanilla entity-to-entity push separation.
-    fn push_entity(&self, entity: &dyn Entity) {
+    /// Applies base separation after specialized collision filtering.
+    fn default_push_entity(&self, entity: &dyn Entity) {
         if self.is_passenger_of_same_vehicle(entity) || entity.no_physics() || self.no_physics() {
             return;
         }
@@ -834,16 +850,19 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
         let mut x = entity.position().x - self.position().x;
         let mut z = entity.position().z - self.position().z;
         let mut distance = x.abs().max(z.abs());
-        if distance < 0.01 {
+        if distance < f64::from(0.01_f32) {
             return;
         }
 
         distance = distance.sqrt();
         x /= distance;
         z /= distance;
-        let scale = (1.0 / distance).min(1.0) * 0.05;
+
+        let scale = (1.0 / distance).min(1.0);
         x *= scale;
         z *= scale;
+        x *= f64::from(0.05_f32);
+        z *= f64::from(0.05_f32);
 
         if !self.is_vehicle() && self.is_pushable() {
             self.push_impulse(DVec3::new(-x, 0.0, -z));
@@ -851,6 +870,11 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
         if !entity.is_vehicle() && entity.is_pushable() {
             entity.push_impulse(DVec3::new(x, 0.0, z));
         }
+    }
+
+    /// Applies entity-to-entity push separation.
+    fn push_entity(&self, entity: &dyn Entity) {
+        self.default_push_entity(entity);
     }
 
     /// Builds this entity's default bounding box at `position`.
@@ -1537,6 +1561,11 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
         try_as_dyn::<Self, dyn Leashable>(self)
     }
 
+    /// Returns this entity as an `AbstractBoat` if it has `AbstractBoat` behavior.
+    fn as_abstract_boat(&self) -> Option<&dyn AbstractBoat> {
+        try_as_dyn::<Self, dyn AbstractBoat>(self)
+    }
+
     /// Returns this entity as an `AbstractMinecart` if it has `AbstractMinecart` behavior.
     fn as_abstract_minecart(&self) -> Option<&dyn AbstractMinecart> {
         try_as_dyn::<Self, dyn AbstractMinecart>(self)
@@ -1779,6 +1808,11 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
     /// Sets the entity's rotation as (yaw, pitch) in degrees.
     fn set_rotation(&self, rotation: (f32, f32)) {
         self.base().set_rotation(rotation);
+    }
+
+    /// Sets the entity's yaw in degrees.
+    fn set_y_rot(&self, yaw: f32) {
+        self.base().set_y_rot(yaw);
     }
 
     /// Gets the nearest horizontal direction to the entity's yaw (horizontal rotation).
@@ -2200,6 +2234,14 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
     /// Returns vanilla underwater state.
     fn is_under_water(&self) -> bool {
         self.base().was_eye_in_water() && self.is_in_water()
+    }
+
+    /// Allows a vehicle to adjust its passenger's fluid interaction box.
+    fn modify_passenger_fluid_interaction_box(
+        &self,
+        passenger_box: WorldAabb,
+    ) -> Option<WorldAabb> {
+        Some(passenger_box)
     }
 
     /// Returns cached fluid contact from the last entity fluid refresh.

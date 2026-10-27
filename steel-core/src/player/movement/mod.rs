@@ -16,7 +16,7 @@ use std::sync::Arc;
 use steel_math::wrap_degrees;
 use steel_protocol::packets::game::{
     CMoveVehicle, CPlayerPosition, PlayerCommandAction, RelativeMovement, SAcceptTeleportation,
-    SMovePlayer, SMoveVehicle, SPlayerCommand, SPlayerInput,
+    SMovePlayer, SMoveVehicle, SPaddleBoat, SPlayerCommand, SPlayerInput,
 };
 use steel_registry::entity_type::EntityTypeRef;
 use steel_registry::stat::custom::CustomStatRef;
@@ -475,6 +475,17 @@ impl Player {
             .lock()
             .mark_last_good_position(self.position());
         self.handle_player_known_movement(client_delta);
+    }
+
+    /// Updates the paddle state of the boat controlled by this player.
+    pub fn handle_paddle_boat(&self, packet: SPaddleBoat) {
+        let Some(vehicle) = self.controlled_vehicle() else {
+            return;
+        };
+
+        if let Some(boat) = vehicle.as_abstract_boat() {
+            boat.set_paddle_state(packet.left, packet.right);
+        }
     }
 
     /// Handles a controlled-vehicle movement packet.

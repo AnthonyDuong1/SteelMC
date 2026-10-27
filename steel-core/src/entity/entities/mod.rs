@@ -14,4 +14,4 @@ pub use objects::projectiles::{
     SplashPotionEntity, ThrownEggEntity,
 };
 pub use objects::technical::{InteractionEntity, MarkerEntity};
-pub use objects::vehicles::{ChestMinecartEntity, MinecartEntity};
+pub use objects::vehicles::{BoatEntity, ChestMinecartEntity, MinecartEntity};

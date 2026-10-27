@@ -1315,6 +1315,16 @@ pub trait Mob: LivingEntity + Leashable {
         75.0
     }
 
+    /// Limits head yaw relative to the body's yaw.
+    fn clamp_head_rotation_to_body(&self) {
+        let limit = self.max_head_y_rot();
+        let head_y_rot = self.y_head_rot();
+        let delta = wrap_degrees(self.y_body_rot() - head_y_rot);
+        let target_delta = wrap_degrees(self.y_body_rot() - head_y_rot).clamp(-limit, limit);
+        let new_head_y_rot = head_y_rot + delta - target_delta;
+        self.set_y_head_rot(new_head_y_rot);
+    }
+
     /// Performs this mob's melee attack against `target`: computes weapon
     /// damage and knockback, applies enchantment effects, and returns whether
     /// the target was hurt.

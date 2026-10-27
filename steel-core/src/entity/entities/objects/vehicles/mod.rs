@@ -1,14 +1,12 @@
 //! Vehicle entity implementations.
 
-mod abstract_minecart;
-mod chest_minecart;
-mod minecart;
-mod minecart_behavior;
+mod boats;
+mod minecarts;
 mod vehicle_entity;
 
-pub(crate) use abstract_minecart::create_minecart;
-pub use abstract_minecart::{AbstractMinecart, AbstractMinecartBase};
-pub use chest_minecart::ChestMinecartEntity;
-pub use minecart::MinecartEntity;
-pub use minecart_behavior::MinecartBehavior;
+pub use boats::{AbstractBoat, AbstractBoatBase, BoatEntity, BoatStatus};
+pub(crate) use minecarts::create_minecart;
+pub use minecarts::{
+    AbstractMinecart, AbstractMinecartBase, ChestMinecartEntity, MinecartBehavior, MinecartEntity,
+};
 pub use vehicle_entity::VehicleEntity;
