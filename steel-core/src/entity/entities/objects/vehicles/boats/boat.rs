@@ -42,7 +42,7 @@ unsafe impl DowncastType for BoatEntity {
 }
 
 impl BoatEntity {
-    /// Creates a boat using its extracted dimensions and drop item.
+    /// Creates a new boat entity.
     #[must_use]
     pub fn new(
         entity_type: EntityTypeRef,
@@ -55,12 +55,12 @@ impl BoatEntity {
             base: EntityBase::new(id, position, entity_type.dimensions, world),
             entity_type,
             entity_data: SyncMutex::new(AbstractBoatEntityData::new()),
-            boat_base: AbstractBoatBase::default(),
+            boat_base: AbstractBoatBase::new(),
             drop_item,
         }
     }
 
-    /// Reconstructs a saved boat before loading its additional state.
+    /// Creates a boat entity from saved data.
     #[must_use]
     pub fn from_saved(
         entity_type: EntityTypeRef,
@@ -71,7 +71,7 @@ impl BoatEntity {
             base: EntityBase::from_load(load, entity_type.dimensions),
             entity_type,
             entity_data: SyncMutex::new(AbstractBoatEntityData::new()),
-            boat_base: AbstractBoatBase::default(),
+            boat_base: AbstractBoatBase::new(),
             drop_item,
         }
     }

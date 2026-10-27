@@ -55,8 +55,15 @@ pub enum BoatStatus {
     InAir,
 }
 
+/// Unsynchronized state shared by boat implementations.
 #[derive(Debug, Default)]
-struct BoatState {
+pub struct AbstractBoatBase {
+    state: SyncMutex<AbstractBoatState>,
+    leash_data: SyncMutex<Option<LeashData>>,
+}
+
+#[derive(Debug, Default)]
+struct AbstractBoatState {
     paddle_positions: [f32; 2],
     out_of_control_ticks: f32,
     delta_rotation: f32,
@@ -70,14 +77,13 @@ struct BoatState {
     bubble_column_direction_is_down: bool,
 }
 
-/// Unsynchronized runtime state shared by boat implementations.
-#[derive(Debug, Default)]
-pub struct AbstractBoatBase {
-    state: SyncMutex<BoatState>,
-    leash_data: SyncMutex<Option<LeashData>>,
-}
-
 impl AbstractBoatBase {
+    /// Creates a new [`AbstractBoatBase`] with default values.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Returns the leash connection shared by boat implementations.
     pub(super) const fn leash_data(&self) -> &SyncMutex<Option<LeashData>> {
         &self.leash_data
