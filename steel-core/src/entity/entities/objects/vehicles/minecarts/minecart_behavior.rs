@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use glam::DVec3;
 use glam::Vec3Swizzles;
-use steel_math::{DEGREE_180, DEGREE_360, trig::atan2, wrap_degrees};
+use steel_math::{DEGREE_180, DEGREE_360, RAD_TO_DEG_F64, trig::atan2, wrap_degrees};
 use steel_registry::blocks::block_state_ext::BlockStateExt;
 use steel_registry::blocks::properties::{
     BlockStateProperties, BoolProperty, EnumProperty, RailShape,
@@ -414,7 +414,7 @@ impl MinecartBehavior {
         let (old_position, position) = (minecart.old_position(), minecart.position());
         let (x_diff, z_diff) = (old_position.x - position.x, old_position.z - position.z);
         if x_diff * x_diff + z_diff * z_diff > MIN_ROTATION_DISTANCE_SQUARED {
-            let mut yaw = (atan2(z_diff, x_diff) * 180.0 / PI) as f32;
+            let mut yaw = (atan2(z_diff, x_diff) * RAD_TO_DEG_F64) as f32;
             if minecart.is_flipped() {
                 yaw += DEGREE_180;
             }
