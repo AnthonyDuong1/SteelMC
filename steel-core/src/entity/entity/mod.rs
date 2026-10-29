@@ -1399,7 +1399,7 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
         self.interact_entity(player, hand, location)
     }
 
-    /// Shared right-click interaction for mobs: leashing/unleashing, cutting
+    /// Shared right-click interaction for entities: leashing/unleashing, cutting
     /// leash connections, or shearing equipment with shears.
     fn interact_entity(
         &self,
@@ -1407,16 +1407,10 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
         hand: InteractionHand,
         _location: DVec3,
     ) -> InteractionResult {
-        let Some(mob) = self.as_mob() else {
-            return InteractionResult::Pass;
-        };
-        let is_alive = self.as_living_entity().is_none_or(LivingEntity::is_alive);
-        if !is_alive {
-            return InteractionResult::Pass;
-        }
-
         if player.is_secondary_use_active()
-            && mob.can_be_leashed()
+            && let Some(leashable) = self.as_leashable()
+            && leashable.can_be_leashed()
+            && self.is_alive()
             && self
                 .as_living_entity()
                 .is_none_or(|living| !LivingEntity::is_baby(living))
@@ -1449,12 +1443,20 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
             return InteractionResult::Success;
         }
 
-        if let Some(holder) = mob.leash_holder() {
+        if !self.is_alive() {
+            return InteractionResult::Pass;
+        }
+
+        let Some(leashable) = self.as_leashable() else {
+            return InteractionResult::Pass;
+        };
+
+        if let Some(holder) = leashable.leash_holder() {
             if holder.id() == player.id() {
                 if player.has_infinite_materials() {
-                    mob.remove_leash();
+                    leashable.remove_leash();
                 } else {
-                    mob.drop_leash();
+                    leashable.drop_leash();
                 }
 
                 self.game_event_with_source_entity(
@@ -1474,7 +1476,7 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
             let inventory = player.inventory.lock();
             inventory.get_item_in_hand(hand).is(&vanilla_items::LEAD)
         };
-        if !holding_lead || !mob.can_have_a_leash_attached_to(player) {
+        if !holding_lead || !leashable.can_have_a_leash_attached_to(player) {
             return InteractionResult::Pass;
         }
 
@@ -1485,10 +1487,10 @@ pub trait Entity: EntityEventSource + ErasedType + Send + Sync + 'static {
             return InteractionResult::Pass;
         };
 
-        if mob.is_leashed() {
-            mob.drop_leash();
+        if leashable.is_leashed() {
+            leashable.drop_leash();
         }
-        if !mob.set_leashed_to(&player_entity) {
+        if !leashable.set_leashed_to(&player_entity) {
             return InteractionResult::Pass;
         }
 
