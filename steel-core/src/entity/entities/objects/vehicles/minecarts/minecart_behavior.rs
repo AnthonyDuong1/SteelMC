@@ -1,4 +1,3 @@
-use std::f64::consts::PI;
 use std::sync::Arc;
 
 use glam::DVec3;
