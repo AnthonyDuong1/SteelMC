@@ -423,7 +423,6 @@ impl LeashData {
 
     pub(super) fn set_holder(&mut self, holder: &SharedEntity) {
         self.holder = LeashHolder::Entity(Arc::downgrade(holder));
-        self.angular_momentum = 0.0;
     }
 
     pub(super) fn save(&self, nbt: &mut NbtCompound) {
