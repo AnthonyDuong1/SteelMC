@@ -712,20 +712,19 @@ pub trait AbstractBoat: VehicleEntity + Leashable {
             if !self.is_silent()
                 && phase % PADDLE_PERIOD <= PADDLE_SOUND_TIME
                 && (phase + PADDLE_SPEED) % PADDLE_PERIOD >= PADDLE_SOUND_TIME
+                && let Some(sound) = self.get_paddle_sound(world)
             {
-                if let Some(sound) = self.get_paddle_sound(world) {
-                    let view = self.look_angle();
-                    let dx = if side == 1 { -view.z } else { view.z };
-                    let dz = if side == 1 { view.x } else { -view.x };
-                    world.play_sound_at(
-                        sound,
-                        self.sound_source(),
-                        self.position() + DVec3::new(dx, 0.0, dz),
-                        1.0,
-                        0.8_f32 + 0.4_f32 * rand::random::<f32>(),
-                        None,
-                    );
-                }
+                let view = self.look_angle();
+                let dx = if side == 1 { -view.z } else { view.z };
+                let dz = if side == 1 { view.x } else { -view.x };
+                world.play_sound_at(
+                    sound,
+                    self.sound_source(),
+                    self.position() + DVec3::new(dx, 0.0, dz),
+                    1.0,
+                    0.8_f32 + 0.4_f32 * rand::random::<f32>(),
+                    None,
+                );
             }
             self.boat_base().state.lock().paddle_positions[side] = phase + PADDLE_SPEED;
         }
@@ -817,7 +816,7 @@ pub trait AbstractBoat: VehicleEntity + Leashable {
 
     /// Restores the boat's saved leash connection.
     fn load_abstract_boat_data(&self, nbt: BorrowedNbtCompoundView<'_, '_>) {
-        *self.leash_data().lock() = LeashData::load(nbt);
+        self.read_leash_data(nbt);
     }
 }
 

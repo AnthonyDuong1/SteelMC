@@ -66,6 +66,18 @@ pub trait Leashable: Entity {
         self.remove_leash();
     }
 
+    /// Restores leash data, removing the previous connection when absent.
+    fn read_leash_data(&self, nbt: BorrowedNbtCompoundView<'_, '_>) {
+        let new_leash_data = LeashData::load(nbt);
+        let should_remove = self.leash_data().lock().is_some() && new_leash_data.is_none();
+
+        if should_remove {
+            self.remove_leash();
+        }
+
+        *self.leash_data().lock() = new_leash_data;
+    }
+
     /// Whether the entity type permits leashing. Mobs reject `Enemy` types
     /// by default; [`Self::may_be_leashed`] checks existing leash data.
     fn can_be_leashed(&self) -> bool {

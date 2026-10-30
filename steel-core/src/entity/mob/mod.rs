@@ -1130,7 +1130,7 @@ pub trait Mob: LivingEntity + Leashable {
             .byte("PersistenceRequired")
             .is_some_and(|value| value != 0);
         *self.mob_base().drop_chances().lock() = DropChances::load(nbt);
-        *self.mob_base().leash_data().lock() = LeashData::load(nbt);
+        self.read_leash_data(nbt);
         let home_radius = nbt.int("home_radius").unwrap_or(-1);
         if home_radius >= 0 {
             let home_position = nbt
