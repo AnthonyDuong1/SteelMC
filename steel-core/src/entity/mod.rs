@@ -447,7 +447,7 @@ pub(crate) fn get_input_vector(input: DVec3, speed: f32, yaw_degrees: f32) -> DV
     } else {
         input
     } * f64::from(speed);
-    let yaw = f64::from(yaw_degrees.to_radians());
+    let yaw = yaw_degrees.to_radians();
     let sin = f64::from(trig::sin(yaw));
     let cos = f64::from(trig::cos(yaw));
     DVec3::new(
