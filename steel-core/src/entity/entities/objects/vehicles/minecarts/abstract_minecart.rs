@@ -14,6 +14,7 @@ use steel_registry::{vanilla_blocks, vanilla_entities};
 use steel_utils::axis::Axis;
 use steel_utils::block_util::FoundRectangle;
 use steel_utils::locks::SyncMutex;
+use steel_utils::nbt::NbtNumeric;
 use steel_utils::{BlockPos, BlockStateId};
 
 use super::super::vehicle_entity::VehicleEntity;
@@ -28,7 +29,6 @@ use crate::portal::portal_shape::PortalShape;
 use crate::world::{SignalGetter as _, World};
 
 const LOWERED_PASSENGER_ATTACHMENT: DVec3 = DVec3::ZERO;
-const AIR_DRAG: f32 = 0.95;
 const WATER_SLOWDOWN_FACTOR: f32 = 0.95;
 const LAVA_FALL_DISTANCE_FACTOR: f64 = 0.5;
 const MIN_PUSH_DISTANCE_SQUARED: f32 = 1.0e-4;
@@ -129,6 +129,11 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
         } else {
             DEFAULT_GRAVITY
         }
+    }
+
+    /// Returns the default air drag of this minecart.
+    fn minecart_air_drag(&self) -> f64 {
+        f64::from(0.95_f32)
     }
 
     /// Returns whether this minecart can be targeted by picking.
@@ -267,8 +272,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
         self.base().compute_known_speed();
         self.handle_portal();
         MinecartBehavior::tick(self.as_abstract_minecart_event_source(), entity, &world);
-        self.refresh_fluid_contact_for_base_tick();
-        self.base().reset_fall_distance_in_water();
+        self.update_fluid_interaction();
 
         if self.is_in_lava() {
             self.lava_ignite();
@@ -310,7 +314,7 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
         }
 
         if !self.on_ground() {
-            self.set_velocity(self.velocity() * f64::from(AIR_DRAG));
+            self.set_velocity(self.velocity() * self.get_air_drag());
         }
     }
 
@@ -453,13 +457,21 @@ pub trait AbstractMinecart: VehicleEntity + AbstractMinecartEventSource {
     fn load_abstract_minecart_data(&self, nbt: BorrowedNbtCompoundView<'_, '_>) {
         self.set_custom_display_block(nbt.compound("DisplayState").and_then(block_state_nbt::load));
         self.set_display_offset(
-            nbt.int("DisplayOffset")
+            nbt.get("DisplayOffset")
+                .and_then(|tag| tag.int_value())
                 .unwrap_or_else(|| self.default_display_offset()),
         );
 
-        let flipped = nbt.byte("FlippedRotation").unwrap_or(0) != 0;
+        let flipped = nbt
+            .get("FlippedRotation")
+            .and_then(|tag| tag.byte_value())
+            .is_some_and(|value| value != 0);
         self.minecart_base().set_flipped(flipped);
-        self.set_first_tick(nbt.byte("HasTicked").unwrap_or(0) != 0);
+        self.set_first_tick(
+            nbt.get("HasTicked")
+                .and_then(|tag| tag.byte_value())
+                .is_some_and(|value| value != 0),
+        );
     }
 }
 
