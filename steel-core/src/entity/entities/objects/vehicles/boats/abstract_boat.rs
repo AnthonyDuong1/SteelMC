@@ -5,7 +5,7 @@ use std::sync::Arc;
 use glam::DVec3;
 use simdnbt::borrow::NbtCompound as BorrowedNbtCompoundView;
 use simdnbt::owned::NbtCompound;
-use steel_math::{DEG_TO_RAD, DEGREE_90, DEGREE_270, trig, wrap_degrees};
+use steel_math::{DEG_TO_RAD, DEGREE_90, DEGREE_270, trig, vector::y_rot, wrap_degrees};
 use steel_registry::TaggedRegistryExt as _;
 use steel_registry::blocks::block_state_ext::BlockStateExt as _;
 use steel_registry::entity_type::EntityDimensions;
@@ -467,14 +467,14 @@ pub trait AbstractBoat: VehicleEntity + Leashable {
                 offset += 0.2_f32;
             }
         }
-        let angle = f64::from(-self.rotation().0 * DEG_TO_RAD);
-        let cos = f64::from(trig::cos(angle));
-        let sin = f64::from(trig::sin(angle));
-        let offset = f64::from(offset);
-        DVec3::new(
-            0.0 * cos + offset * sin,
-            self.ride_height(self.base().dimensions()),
-            offset * cos - 0.0 * sin,
+
+        y_rot(
+            DVec3::new(
+                0.0,
+                self.ride_height(self.base().dimensions()),
+                f64::from(offset),
+            ),
+            -self.rotation().0 * DEG_TO_RAD,
         )
     }
 
@@ -535,7 +535,7 @@ pub trait AbstractBoat: VehicleEntity + Leashable {
 
     /// Applies separation when the other entity overlaps the allowed vertical range.
     fn boat_push_entity(&self, other: &dyn Entity) {
-        let collides = if other.entity_type().is_abstract_boat {
+        let collides = if other.as_abstract_boat().is_some() {
             other.bounding_box().min_y() < self.bounding_box().max_y()
         } else {
             other.bounding_box().min_y() <= self.bounding_box().min_y()

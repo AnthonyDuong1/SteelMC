@@ -23,7 +23,7 @@ use crate::entity::{
     EntitySyncedData, RemovalReason, SharedEntity,
 };
 use crate::player::Player;
-use crate::world::World;
+use crate::world::{Explosion, World};
 
 /// A regular wooden boat, with variant properties supplied by extracted data.
 #[entity_behavior(class = "Boat")]
@@ -265,6 +265,10 @@ impl Entity for BoatEntity {
 
     fn hurt(&self, world: &World, source: &DamageSource, amount: f32) -> bool {
         self.vehicle_hurt(world, source, amount)
+    }
+
+    fn ignore_explosion(&self, explosion: &dyn Explosion) -> bool {
+        self.vehicle_ignore_explosion(explosion)
     }
 
     fn check_fall_damage(

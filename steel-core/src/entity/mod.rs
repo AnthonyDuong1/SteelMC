@@ -960,12 +960,22 @@ pub(crate) fn start_riding_entities(
 
     passenger.set_pose(EntityPose::Standing);
     EntityBase::start_riding_relationship(entity_to_ride, passenger);
+
+    if let Some(world) = passenger.level() {
+        world.game_event_at(
+            &vanilla_game_events::ENTITY_MOUNT,
+            entity_to_ride.position(),
+            &GameEventContext::new(Some(passenger.as_ref()), None),
+        );
+    }
+
     if let Some(mob) = passenger.as_mob()
         && mob.is_leashed()
     {
         mob.drop_leash();
     }
-    // TODO: Emit ENTITY_MOUNT game event and riding advancement trigger once those foundations exist.
+
+    // TODO: Trigger riding advancement once that foundation exist.
     true
 }
 
