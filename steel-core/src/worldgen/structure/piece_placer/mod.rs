@@ -81,7 +81,12 @@ impl StructurePiecePlacer {
         if persistence_required {
             mob.set_persistence_required();
         }
-        entity.snap_to(position, 0.0, 0.0);
+        if let Err(error) = entity.snap_to(position, 0.0, 0.0) {
+            panic!(
+                "failed to position newly constructed structure entity {}: {error}",
+                entity_type.key
+            );
+        }
         Some(entity)
     }
 
