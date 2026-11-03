@@ -16,11 +16,7 @@ use steel_utils::random::{PositionalRandom, Random};
 use steel_utils::{BlockPos, BlockStateId, BoundingBox, Direction, Rotation, types::UpdateFlags};
 
 use crate::chunk::heightmap::HeightmapType;
-use crate::entity::{
-    Entity,
-    entities::{ItemFrameEntity, RawEntity},
-    next_entity_id,
-};
+use crate::entity::{entities::ItemFrameEntity, next_entity_id};
 use crate::fluid::FluidStateExt as _;
 use crate::world::World;
 use crate::worldgen::region::WorldGenRegion;
@@ -397,17 +393,14 @@ impl StructurePiecePlacer {
             f64::from(pos.y()),
             f64::from(pos.z()) + 0.5,
         );
-        let entity = Arc::new(RawEntity::new(
-            next_entity_id(),
+        if let Some(entity) = Self::create_mob(
+            &vanilla_entities::DROWNED,
             entity_pos,
             region.weak_world(),
-            &vanilla_entities::DROWNED,
-        ));
-        entity.set_persistence_required();
-        if let Err(error) = entity.snap_to(entity_pos, 0.0, 0.0) {
-            panic!("Failed to position newly constructed structure entity: {error}");
+            true,
+        ) {
+            let _ = region.add_fresh_entity(entity);
         }
-        let _ = region.add_fresh_entity(entity);
 
         let replacement = if pos.y() > region.sea_level() {
             vanilla_blocks::AIR.default_state()
@@ -512,15 +505,14 @@ impl StructurePiecePlacer {
             f64::from(pos.y()),
             f64::from(pos.z()) + 0.5,
         );
-        let entity = Arc::new(RawEntity::new(
-            next_entity_id(),
+        let Some(entity) = Self::create_mob(
+            &vanilla_entities::SHULKER,
             entity_pos,
             region.weak_world(),
-            &vanilla_entities::SHULKER,
-        ));
-        if let Err(error) = entity.snap_to(entity_pos, 0.0, 0.0) {
-            panic!("failed to position newly constructed structure entity: {error}");
-        }
+            false,
+        ) else {
+            return;
+        };
         let _ = region.add_fresh_entity(entity);
     }
 
@@ -615,16 +607,10 @@ impl StructurePiecePlacer {
         entity_type: EntityTypeRef,
     ) {
         let entity_pos = DVec3::new(f64::from(pos.x()), f64::from(pos.y()), f64::from(pos.z()));
-        let entity = Arc::new(RawEntity::new(
-            next_entity_id(),
-            entity_pos,
-            region.weak_world(),
-            entity_type,
-        ));
-        entity.set_persistence_required();
-        if let Err(error) = entity.snap_to(entity_pos, 0.0, 0.0) {
-            panic!("failed to position newly constructed structure entity: {error}");
-        }
+        let Some(entity) = Self::create_mob(entity_type, entity_pos, region.weak_world(), true)
+        else {
+            return;
+        };
         let _ = region.add_fresh_entity(entity);
     }
 

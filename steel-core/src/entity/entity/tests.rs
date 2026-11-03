@@ -8,10 +8,9 @@ use steel_utils::{BlockPos, ChunkPos};
 use crate::behavior::init_behaviors;
 use crate::entity::entities::PigEntity;
 use crate::entity::{EntityBase, RemovalReason, SharedEntity};
-use crate::test_support::{fresh_test_world, insert_ready_full_chunk};
-use crate::world::World;
+use crate::test_support::{TestWorld, fresh_test_world, insert_ready_full_chunk};
 
-use super::look_at_rotation;
+use super::{landing_particle_count, landing_particle_position, look_at_rotation};
 
 #[test]
 fn look_at_rotation_matches_vanilla_axes() {
@@ -33,12 +32,13 @@ fn look_at_rotation_matches_vanilla_axes() {
     );
 }
 
-fn riding_pigs(name: &'static str) -> (Arc<World>, SharedEntity, SharedEntity) {
+fn riding_pigs(name: &'static str) -> (TestWorld, SharedEntity, SharedEntity) {
     init_vanilla_registry();
     init_behaviors();
 
-    let world = fresh_test_world(name);
-    insert_ready_full_chunk(&world, ChunkPos::new(0, 0));
+    let world_fixture = fresh_test_world(name);
+    let world = &world_fixture.world;
+    insert_ready_full_chunk(world, ChunkPos::new(0, 0));
 
     // Give all eight horizontal dismount candidates a solid floor.
     for x in 7..=9 {
@@ -56,13 +56,13 @@ fn riding_pigs(name: &'static str) -> (Arc<World>, SharedEntity, SharedEntity) {
         &vanilla_entities::PIG,
         1,
         position,
-        Arc::downgrade(&world),
+        Arc::downgrade(world),
     ));
     let passenger: SharedEntity = Arc::new(PigEntity::new(
         &vanilla_entities::PIG,
         2,
         position,
-        Arc::downgrade(&world),
+        Arc::downgrade(world),
     ));
 
     world
@@ -83,7 +83,7 @@ fn riding_pigs(name: &'static str) -> (Arc<World>, SharedEntity, SharedEntity) {
     assert!(passenger.is_passenger());
     assert!(vehicle.has_passenger(passenger.as_ref()));
 
-    (world, vehicle, passenger)
+    (world_fixture, vehicle, passenger)
 }
 
 #[test]
@@ -104,7 +104,8 @@ fn dismount_clears_relationships_and_uses_first_safe_offset() {
 
 #[test]
 fn dismount_skips_blocked_first_offset() {
-    let (world, vehicle, passenger) = riding_pigs("dismount_blocked_first_offset");
+    let (world_fixture, vehicle, passenger) = riding_pigs("dismount_blocked_first_offset");
+    let world = &world_fixture.world;
 
     // Block west, the first candidate for a south-facing vehicle.
     assert!(world.set_block(
@@ -134,4 +135,19 @@ fn dismount_of_removed_passenger_preserves_position() {
 
     // Vanilla preserves the current position when dismounting a removed passenger.
     assert_eq!(passenger.position(), riding_position);
+}
+
+#[test]
+fn landing_particles_use_vanilla_fall_power_threshold_and_cap() {
+    assert_eq!(landing_particle_count(3.0, 3.0), None);
+    assert_eq!(landing_particle_count(4.0, 3.0), Some(40));
+    assert_eq!(landing_particle_count(38.0, 3.0), Some(375));
+}
+
+#[test]
+fn landing_particles_shift_to_the_landed_on_block_edge() {
+    let position = landing_particle_position(DVec3::new(1.25, 5.0, 0.75), BlockPos::new(0, 4, 0));
+    assert_eq!(position.y, 5.0);
+    assert!((position.x - 1.0).abs() < f64::EPSILON);
+    assert!((position.z - 2.0 / 3.0).abs() < f64::EPSILON);
 }

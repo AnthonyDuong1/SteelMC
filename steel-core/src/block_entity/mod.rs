@@ -43,8 +43,11 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
+
 use steel_registry::blocks::block_state_ext::BlockStateExt as _;
-use steel_registry::{block_entity_type::BlockEntityTypeRef, data_components::DataComponentMap};
+use steel_registry::{
+    block_entity_type::BlockEntityTypeRef, data_components::DataComponentMap, item_stack::ItemStack,
+};
 use steel_utils::{
     BlockPos, BlockStateId, ErasedType,
     locks::{SyncMutex, SyncRwLock},
@@ -56,6 +59,7 @@ pub(crate) use storage::{
     DetachedBlockEntity, LifecycleDispatchers,
 };
 
+use crate::block_entity::entities::Spawner;
 use crate::inventory::lock::ContainerRef;
 use crate::player::Player;
 
@@ -353,8 +357,6 @@ pub trait BlockEntity: ErasedType + Send + Sync {
     }
 
     /// Returns whether this entity's registered type accepts `state`.
-    ///
-    /// Mirrors Vanilla `BlockEntity.isValidBlockState`.
     fn is_valid_block_state(&self, state: BlockStateId) -> bool {
         self.get_type().is_valid(state.get_block())
     }
@@ -392,10 +394,13 @@ pub trait BlockEntity: ErasedType + Send + Sync {
     }
 
     /// Handles a block event delegated by the owning block behavior.
-    ///
-    /// Mirrors Vanilla `BlockEntity.triggerEvent`.
     fn trigger_event(&self, _param_a: i32, _param_b: i32) -> bool {
         false
+    }
+
+    /// Returns this block entity as a spawner.
+    fn as_spawner(&self) -> Option<&dyn Spawner> {
+        None
     }
 
     /// Called before the block entity is removed to handle side effects.
@@ -507,6 +512,13 @@ pub trait BlockEntity: ErasedType + Send + Sync {
     fn game_event_listener(&self) -> Option<SharedGameEventListener> {
         None
     }
+
+    /// Called in `BlockItem.place` before `placedState.getBlock().setPlacedBy`
+    #[expect(
+        unused_variables,
+        reason = "default trait impl; parameters used by overrides"
+    )]
+    fn apply_components_from_item(&self, item: &ItemStack) {}
 }
 
 /// Final block-entity common-state operations.
